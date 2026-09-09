@@ -1,7 +1,14 @@
-export const SCHOOL_WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_PHONE ?? '77000000000';
+export const SCHOOL_WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_PHONE ?? '77471655391';
 
 export function waLink(text: string, phone: string = SCHOOL_WHATSAPP) {
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  const digits = phone.replace(/\D/g, '');
+  return `https://api.whatsapp.com/send/?phone=${digits}&text=${encodeURIComponent(text)}`;
+}
+
+/** Просто открыть переписку с номером, без готового текста (например, клик по телефону родителя). */
+export function waChatLink(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  return `https://api.whatsapp.com/send/?phone=${digits}`;
 }
 
 /** Человеческие сообщения для кодов ошибок, которые нужно объяснить отдельно от message с бэкенда. */

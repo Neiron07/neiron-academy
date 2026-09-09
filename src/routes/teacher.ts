@@ -119,7 +119,17 @@ export default async function teacherRoutes(app: FastifyInstance) {
         where l.group_id = $1 and l.scheduled_at < now()
         order by l.scheduled_at desc limit 10`, [id]);
 
-    return { group, students, recentLessons };
+    const upcomingLessons = await query(
+      `select l.id, l.scheduled_at, l.status
+         from lessons l
+        where l.group_id = $1 and l.scheduled_at >= now()
+        order by l.scheduled_at limit 10`, [id]);
+
+    const schedule = await query(
+      `select id, weekday, start_time, duration_min from group_schedule
+        where group_id = $1 order by weekday, start_time`, [id]);
+
+    return { group, students, recentLessons, upcomingLessons, schedule };
   });
 
   /** Заказы магазина к выдаче. */

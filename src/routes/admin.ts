@@ -214,6 +214,12 @@ export default async function adminRoutes(app: FastifyInstance) {
       birth_date: z.string().nullable().optional(),
       branch_id: z.string().uuid().optional(),
       is_active: z.boolean().optional(),
+      status: z.enum(['active', 'paused', 'left']).optional(),
+      group_id: z.string().uuid().nullable().optional(),
+      parent: z.object({
+        full_name: z.string().min(2),
+        phone: z.string(),
+      }).optional(),
     }).parse(req.body);
 
     const existing = await one<{ id: string }>(`select id from users where id=$1 and role='student'`, [id]);
@@ -233,11 +239,66 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (body.birth_date !== undefined) {
         await c.query(`update students set birth_date=$2 where user_id=$1`, [id, body.birth_date]);
       }
+      if (body.status !== undefined) {
+        await c.query(`update students set status=$2::enroll_status where user_id=$1`, [id, body.status]);
+      }
+
+      // Перевод в другую группу или отчисление из текущей — group_id: null снимает без замены.
+      if (body.group_id !== undefined) {
+        const current = await c.query(
+          `select group_id from enrollments where student_id=$1 and status='active'`, [id]);
+        const currentGroupId = current.rows[0]?.group_id ?? null;
+        if (currentGroupId !== body.group_id) {
+          await c.query(
+            `update enrollments set status='left', left_at=current_date
+              where student_id=$1 and status='active'`, [id]);
+          if (body.group_id) {
+            const cap = await c.query(
+              `select g.capacity,
+                      (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as filled
+                 from groups g where g.id=$1`, [body.group_id]);
+            if (!cap.rowCount) throw new AppError(404, 'NOT_FOUND', 'Группа не найдена');
+            if (Number(cap.rows[0].filled) >= cap.rows[0].capacity) {
+              throw new AppError(400, 'GROUP_FULL', 'В группе нет свободных мест');
+            }
+            await c.query(`insert into enrollments (group_id, student_id) values ($1,$2)`, [body.group_id, id]);
+          }
+        }
+      }
+
+      // Родитель: обновляем уже привязанного или создаём нового и привязываем.
+      if (body.parent) {
+        const phone = normalizePhone(body.parent.phone);
+        const linked = await c.query(
+          `select pu.id from parents_students ps join users pu on pu.id=ps.parent_id
+            where ps.student_id=$1 order by ps.is_primary desc limit 1`, [id]);
+
+        if (linked.rowCount) {
+          await c.query(`update users set full_name=$2, phone=$3 where id=$1`,
+            [linked.rows[0].id, body.parent!.full_name, phone]);
+        } else {
+          const byPhone = await c.query(`select id from users where phone=$1`, [phone]);
+          let parentId: string;
+          if (byPhone.rowCount) {
+            parentId = byPhone.rows[0].id;
+          } else {
+            // pin_hash оставляем пустым — «Сбросить PIN» в интерфейсе выдаст код, который реально знает админ.
+            const created = await c.query(
+              `insert into users (branch_id, role, full_name, phone, created_by)
+               values ((select branch_id from users where id=$4),'parent',$1,$2,$3) returning id`,
+              [body.parent!.full_name, phone, req.user!.id, id]);
+            parentId = created.rows[0].id;
+          }
+          await c.query(
+            `insert into parents_students (parent_id, student_id) values ($1,$2) on conflict do nothing`,
+            [parentId, id]);
+        }
+      }
     });
 
     await audit({ actorId: req.user!.id, action: 'student.update', entity: 'users', entityId: id, diff: body });
     return one(
-      `select u.id, u.full_name, u.is_active, u.branch_id, s.birth_date
+      `select u.id, u.full_name, u.is_active, u.branch_id, s.birth_date, s.status
          from users u join students s on s.user_id=u.id where u.id=$1`, [id]);
   });
 
@@ -493,6 +554,55 @@ export default async function adminRoutes(app: FastifyInstance) {
     await query(`delete from groups where id=$1`, [id]);
     await audit({ actorId: req.user!.id, action: 'group.delete', entity: 'groups', entityId: id });
     return { ok: true, archived: false };
+  });
+
+  /** Добавить день в расписание группы — сразу раскатывает будущие уроки под него. */
+  app.post('/groups/:id/schedule', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      weekday: z.number().int().min(1).max(7),
+      start_time: z.string().regex(/^\d{2}:\d{2}$/),
+      duration_min: z.number().int().default(90),
+    }).parse(req.body);
+
+    const group = await one<{ id: string }>(`select id from groups where id=$1`, [id]);
+    if (!group) throw new AppError(404, 'NOT_FOUND', 'Группа не найдена');
+
+    const created = await one(
+      `insert into group_schedule (group_id, weekday, start_time, duration_min)
+       values ($1,$2,$3,$4) returning *`,
+      [id, body.weekday, body.start_time, body.duration_min]);
+    await query(`select generate_lessons(14)`);
+
+    await audit({ actorId: req.user!.id, action: 'group.schedule.add', entity: 'groups', entityId: id, diff: body });
+    return created;
+  });
+
+  /**
+   * Убрать день из расписания — и снять ещё не проведённые уроки, которые
+   * успели раскататься под него. Прошедшие и уже отмеченные уроки не трогаем.
+   */
+  app.delete('/groups/:id/schedule/:scheduleId', { preHandler: admin }, async (req) => {
+    const { id, scheduleId } = z.object({ id: z.string().uuid(), scheduleId: z.string().uuid() }).parse(req.params);
+
+    const row = await one<{ weekday: number; start_time: string }>(
+      `select weekday, start_time from group_schedule where id=$1 and group_id=$2`, [scheduleId, id]);
+    if (!row) throw new AppError(404, 'NOT_FOUND', 'День расписания не найден');
+
+    await tx(async (c) => {
+      await c.query(`delete from group_schedule where id=$1`, [scheduleId]);
+      await c.query(
+        `delete from lessons l
+           using groups g, branches b
+          where l.group_id = g.id and g.id = $1 and b.id = g.branch_id
+            and l.status = 'planned' and l.scheduled_at > now()
+            and extract(isodow from (l.scheduled_at at time zone coalesce(b.timezone,'Asia/Almaty')))::int = $2
+            and to_char((l.scheduled_at at time zone coalesce(b.timezone,'Asia/Almaty')), 'HH24:MI') = $3`,
+        [id, row.weekday, row.start_time]);
+    });
+
+    await audit({ actorId: req.user!.id, action: 'group.schedule.remove', entity: 'groups', entityId: id, diff: row });
+    return { ok: true };
   });
 
   // =================================================== ОПЛАТЫ

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, UsersRound, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
@@ -67,15 +68,17 @@ export default function AdminGroupsPage() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {data?.map((g) => (
           <Card key={g.id} className={g.status === 'archived' ? 'opacity-50' : ''}>
-            <div className="mb-1 flex items-start justify-between gap-2">
-              <p className="font-medium text-white">{g.name}</p>
-              {g.status === 'archived' && <StatusBadge tone="negative" label="Архив" />}
-            </div>
-            <p className="text-sm text-lavender">{g.course_name}</p>
-            {g.branch_name && <p className="text-sm text-lavender">{g.branch_name}</p>}
-            <p className="mt-2 text-sm text-muted">
-              {g.students_count}/{g.capacity} учеников{g.room && ` · ${g.room}`}
-            </p>
+            <Link href={`/app/admin/groups/${g.id}`} className="block">
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <p className="font-medium text-white hover:underline">{g.name}</p>
+                {g.status === 'archived' && <StatusBadge tone="negative" label="Архив" />}
+              </div>
+              <p className="text-sm text-lavender">{g.course_name}</p>
+              {g.branch_name && <p className="text-sm text-lavender">{g.branch_name}</p>}
+              <p className="mt-2 text-sm text-muted">
+                {g.students_count}/{g.capacity} учеников{g.room && ` · ${g.room}`}
+              </p>
+            </Link>
             <div className="mt-3 flex gap-1.5">
               {g.status === 'archived' ? (
                 <Button size="sm" variant="secondary" loading={restore.isPending} onClick={() => restore.mutate(g.id)}>

@@ -17,6 +17,7 @@ import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinS
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatKzt } from '@/lib/format';
 import { daysUntil, paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
+import { waChatLink } from '@/lib/constants';
 import { Users } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -110,7 +111,13 @@ function StudentsContent() {
                     </td>
                     <td className="px-4 py-3 text-lavender">{s.branch_name ?? '—'}</td>
                     <td className="px-4 py-3 text-lavender">
-                      {s.phone ?? '—'}
+                      {s.phone ? (
+                        <a href={waChatLink(s.phone)} target="_blank" rel="noreferrer" className="text-lavender hover:text-white hover:underline">
+                          {s.phone}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
                       {primaryParent && (
                         <button
                           onClick={() => setPinFor({ id: primaryParent.id, name: primaryParent.full_name, phone: primaryParent.phone })}

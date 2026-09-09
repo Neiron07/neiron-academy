@@ -52,6 +52,7 @@ export function GroupFormSheet({ group, onClose }: { group: TeacherGroup | null;
     onSuccess: () => {
       toast('Группа обновлена', 'success');
       qc.invalidateQueries({ queryKey: ['admin-groups-list'] });
+      qc.invalidateQueries({ queryKey: ['admin-group-detail'] });
       onClose();
     },
     onError: (e) => {

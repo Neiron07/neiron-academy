@@ -238,10 +238,19 @@ export interface GroupStudent {
   lessons_attended: number;
 }
 
+export interface GroupScheduleRow {
+  id: string;
+  weekday: number;
+  start_time: string;
+  duration_min: number;
+}
+
 export interface GroupDetail {
   group: TeacherGroup & { teacher_id: string; course_name: string };
   students: GroupStudent[];
   recentLessons: { id: string; scheduled_at: string; status: LessonStatus; topic: string | null }[];
+  upcomingLessons: { id: string; scheduled_at: string; status: LessonStatus }[];
+  schedule: GroupScheduleRow[];
 }
 
 export interface PendingOrder {
