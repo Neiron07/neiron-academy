@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { Search } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
 import type { AdminStudentRow } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,12 +25,22 @@ export function CreatePaymentForm() {
   const [lessons, setLessons] = useState('8');
   const [method, setMethod] = useState<(typeof METHODS)[number]['id']>('kaspi');
   const [comment, setComment] = useState('');
+  const [error, setError] = useState('');
 
+  // Список сразу видно — не нужно ничего печатать, чтобы выбрать ученика.
   const { data: students } = useQuery({
-    queryKey: ['admin-students-search', search],
-    queryFn: () => api.get<AdminStudentRow[]>(`/admin/students?search=${encodeURIComponent(search)}`),
-    enabled: search.length >= 2,
+    queryKey: ['admin-students'],
+    queryFn: () => api.get<AdminStudentRow[]>('/admin/students'),
   });
+
+  const filtered = useMemo(() => {
+    if (!students) return [];
+    const q = search.trim().toLowerCase();
+    const list = q ? students.filter((s) => s.full_name.toLowerCase().includes(q)) : students;
+    return list.slice(0, 30);
+  }, [students, search]);
+
+  const selected = students?.find((s) => s.id === studentId);
 
   const create = useMutation({
     mutationFn: () =>
@@ -43,12 +54,18 @@ export function CreatePaymentForm() {
     onSuccess: () => {
       toast('Оплата сохранена', 'success');
       qc.invalidateQueries({ queryKey: ['admin-payments'] });
+      qc.invalidateQueries({ queryKey: ['admin-students'] });
       setAmount('');
       setComment('');
       setStudentId('');
       setSearch('');
+      setError('');
     },
-    onError: () => toast('Не удалось сохранить оплату', 'error'),
+    onError: (e) => {
+      const message = e instanceof ApiError ? e.message : 'Не удалось сохранить оплату';
+      setError(message);
+      toast(message, 'error');
+    },
   });
 
   return (
@@ -57,30 +74,45 @@ export function CreatePaymentForm() {
       <div className="space-y-3">
         <div>
           <span className="mb-1.5 block text-sm text-lavender">Ученик</span>
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setStudentId('');
-            }}
-            placeholder="Начните вводить имя"
-            className="h-11 w-full rounded-xl border border-purple-mid bg-transparent px-3 text-white placeholder:text-muted outline-none focus:border-purple"
-          />
-          {search.length >= 2 && students && students.length > 0 && !studentId && (
-            <div className="mt-1 max-h-40 overflow-y-auto rounded-xl border border-purple-mid">
-              {students.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    setStudentId(s.id);
-                    setSearch(s.full_name);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-white/5"
-                >
-                  {s.full_name}
-                </button>
-              ))}
-            </div>
+          {selected ? (
+            <button
+              onClick={() => {
+                setStudentId('');
+                setSearch('');
+              }}
+              className="flex h-11 w-full items-center justify-between rounded-xl border border-purple bg-purple/10 px-3 text-left text-sm text-white"
+            >
+              {selected.full_name}
+              <span className="text-xs text-lavender">изменить</span>
+            </button>
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Поиск или выбери из списка"
+                  className="h-11 w-full rounded-xl border border-purple-mid bg-transparent pl-9 pr-3 text-sm text-white placeholder:text-muted outline-none focus:border-purple"
+                />
+              </div>
+              <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-purple-mid">
+                {filtered.length === 0 && <p className="px-3 py-2 text-sm text-muted">Никого не нашли</p>}
+                {filtered.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setStudentId(s.id);
+                      setSearch('');
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white hover:bg-white/5"
+                  >
+                    {s.full_name}
+                    {s.group_name && <span className="text-xs text-muted">{s.group_name}</span>}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
         <div className="flex gap-3">
@@ -99,6 +131,7 @@ export function CreatePaymentForm() {
           ))}
         </div>
         <Input label="Комментарий (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
+        {error && <p className="text-sm text-white">{error}</p>}
         <Button
           fullWidth
           disabled={!studentId || !amount || !lessons}

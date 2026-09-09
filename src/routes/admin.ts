@@ -526,6 +526,46 @@ export default async function adminRoutes(app: FastifyInstance) {
         order by p.paid_at desc limit 500`, [q.month ?? null]);
   });
 
+  /** Редактирование оплаты — например, если ошиблись в сумме или методе при вводе. */
+  app.patch('/payments/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      amount_kzt: z.number().int().positive().optional(),
+      lessons_count: z.number().int().positive().optional(),
+      method: z.enum(['kaspi', 'cash', 'transfer']).optional(),
+      paid_at: z.string().optional(),
+      period_label: z.string().nullable().optional(),
+      comment: z.string().nullable().optional(),
+    }).parse(req.body);
+
+    const existing = await one<{ id: string }>(`select id from payments where id=$1`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Оплата не найдена');
+
+    const updated = await one(
+      `update payments set
+         amount_kzt = coalesce($2, amount_kzt),
+         lessons_count = coalesce($3, lessons_count),
+         method = coalesce($4, method)::payment_method,
+         paid_at = coalesce($5::date, paid_at),
+         period_label = coalesce($6, period_label),
+         comment = coalesce($7, comment)
+       where id = $1 returning *`,
+      [id, body.amount_kzt ?? null, body.lessons_count ?? null, body.method ?? null,
+       body.paid_at ?? null, body.period_label ?? null, body.comment ?? null]);
+
+    await audit({ actorId: req.user!.id, action: 'payment.update', entity: 'payments', entityId: id, diff: body });
+    return updated;
+  });
+
+  /** Удаление оплаты — компенсирует ошибочный ввод. Коины это не трогает, апдейта баланса тут нет. */
+  app.delete('/payments/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const deleted = await one(`delete from payments where id=$1 returning id`, [id]);
+    if (!deleted) throw new AppError(404, 'NOT_FOUND', 'Оплата не найдена');
+    await audit({ actorId: req.user!.id, action: 'payment.delete', entity: 'payments', entityId: id });
+    return { ok: true };
+  });
+
   // =================================================== КОИНЫ
   /** Корректировка баланса — только компенсирующей транзакцией, не правкой. */
   app.post('/coins/adjust', { preHandler: admin }, async (req) => {

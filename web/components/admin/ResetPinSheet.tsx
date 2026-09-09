@@ -6,6 +6,7 @@ import { MessageCircle } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { useToast } from '@/components/ui/Toast';
 import { waLink } from '@/lib/constants';
 
@@ -52,7 +53,10 @@ export function ResetPinSheet({ target, onClose }: { target: ResetPinTarget | nu
       ) : (
         <>
           <p className="mb-2 text-sm text-lavender">Новый PIN — покажи один раз, дальше только новый сброс:</p>
-          <p className="mb-4 text-center font-display text-4xl font-bold tracking-widest text-white">{newPin}</p>
+          <p className="mb-3 text-center font-display text-4xl font-bold tracking-widest text-white">{newPin}</p>
+          <div className="mb-3 flex justify-center">
+            <CopyButton text={target?.login ? `Логин: ${target.login}\nPIN: ${newPin}` : `PIN: ${newPin}`} label="Скопировать" />
+          </div>
           <div className="flex gap-2">
             {target?.phone && (
               <a href={waLink(message, target.phone)} target="_blank" rel="noreferrer" className="flex-1">

@@ -9,6 +9,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { useToast } from '@/components/ui/Toast';
 import { waLink } from '@/lib/constants';
 
@@ -80,34 +81,50 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
     return (
       <Sheet open={open} onClose={() => { reset(); onClose(); }} title="Ученик создан">
         <div className="space-y-3">
-          <p className="text-sm text-lavender">Логин и PIN показываются один раз — распечатай карточку сейчас.</p>
+          <p className="text-sm text-lavender">Логин и PIN показываются один раз — скопируй или распечатай карточку сейчас.</p>
           <div id="student-card" className="rounded-2xl border border-purple-mid p-4 text-center">
             <p className="font-medium text-white">{fullName}</p>
             <p className="mt-2 text-sm text-lavender">Логин</p>
             <p className="font-display text-xl font-bold text-white">{result.login}</p>
             <p className="mt-2 text-sm text-lavender">PIN</p>
             <p className="font-display text-3xl font-bold tracking-widest text-white">{result.pin}</p>
+            <div className="mt-3 flex justify-center gap-2 no-print">
+              <CopyButton text={`Логин: ${result.login}\nPIN: ${result.pin}`} label="Скопировать логин и PIN" />
+              {parentPhone && (
+                <a
+                  href={waLink(`Neiron Academy\nВход в личный кабинет ${fullName}:\nЛогин: ${result.login}\nPIN: ${result.pin}`, parentPhone)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Button variant="secondary" size="sm">
+                    <MessageCircle className="size-3.5" aria-hidden /> В WhatsApp
+                  </Button>
+                </a>
+              )}
+            </div>
           </div>
           {result.parent_pin && (
             <div className="rounded-2xl border border-purple-mid p-4 text-center">
               <p className="text-sm text-lavender">PIN родителя ({parentPhone || 'указанный телефон'})</p>
               <p className="font-display text-3xl font-bold tracking-widest text-white">{result.parent_pin}</p>
               <p className="mt-1 text-sm text-muted">Родитель входит по этому телефону и PIN — так же, как ученик</p>
-              {parentPhone && (
-                <a
-                  href={waLink(
-                    `Neiron Academy\nВаш вход в личный кабинет — этот номер и PIN:\nPIN: ${result.parent_pin}`,
-                    parentPhone,
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 block"
-                >
-                  <Button variant="secondary" fullWidth>
-                    <MessageCircle className="size-4" aria-hidden /> Отправить в WhatsApp
-                  </Button>
-                </a>
-              )}
+              <div className="mt-3 flex justify-center gap-2 no-print">
+                <CopyButton text={`Телефон: ${parentPhone}\nPIN: ${result.parent_pin}`} label="Скопировать" />
+                {parentPhone && (
+                  <a
+                    href={waLink(
+                      `Neiron Academy\nВаш вход в личный кабинет — этот номер и PIN:\nPIN: ${result.parent_pin}`,
+                      parentPhone,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Button variant="secondary" size="sm">
+                      <MessageCircle className="size-3.5" aria-hidden /> В WhatsApp
+                    </Button>
+                  </a>
+                )}
+              </div>
             </div>
           )}
           <div className="flex gap-2">

@@ -37,6 +37,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, { origin: [config.APP_URL], credentials: true });
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' });
 
+  /**
+   * Fastify по умолчанию падает на пустом теле с Content-Type: application/json
+   * (FST_ERR_CTP_EMPTY_JSON_BODY) — ещё до того, как запрос дойдёт до роута.
+   * Многие POST-ручки без данных (сброс PIN и т.п.) шлют именно так через наш
+   * прокси. Пустое тело — это просто {}, а не ошибка.
+   */
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    const text = body as string;
+    if (text.trim() === '') return done(null, {});
+    try {
+      done(null, JSON.parse(text));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   // ------------------------------------------------------ авторизация
   /**
    * Проверка роли на КАЖДОМ запросе, а не только редиректом во фронте.

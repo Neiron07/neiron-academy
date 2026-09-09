@@ -48,6 +48,24 @@ body {
   border-radius: 4px;
 }
 
+/*
+ * html{color-scheme:dark} не всегда доходит до нативного попапа <select> —
+ * браузер рисует список option поверх страницы своим движком и иногда
+ * игнорирует унаследованную тему, оставляя белый фон с белым текстом поверх
+ * него (невидимо, пока не навести). Прибиваем явно на самих select/option.
+ */
+select,
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: var(--color-purple-deep);
+  color: var(--color-white);
+}
+
 @media print {
   .no-print {
     display: none !important;
