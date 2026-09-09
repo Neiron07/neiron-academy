@@ -7,6 +7,7 @@ import type { Lead, LeadStatus } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 import { formatRelativeDateTime } from '@/lib/format';
 import { Kanban } from 'lucide-react';
 
@@ -20,6 +21,7 @@ const COLUMNS: { id: LeadStatus; label: string }[] = [
 
 export default function AdminLeadsPage() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-leads'],
     queryFn: () => api.get<Lead[]>('/admin/leads'),
@@ -28,6 +30,7 @@ export default function AdminLeadsPage() {
   const move = useMutation({
     mutationFn: (p: { id: string; status: LeadStatus }) => api.patch(`/admin/leads/${p.id}`, { status: p.status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-leads'] }),
+    onError: () => toast('Не удалось изменить статус лида', 'error'),
   });
 
   return (

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
-import type { AdminGroup, PublicCourse } from '@/lib/types';
+import type { AdminGroup, AdminStaff, PublicCourse } from '@/lib/types';
 import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +22,7 @@ export function CreateGroupSheet({ open, onClose }: { open: boolean; onClose: ()
   const qc = useQueryClient();
   const toast = useToast();
   const [courseId, setCourseId] = useState('');
+  const [teacherId, setTeacherId] = useState('');
   const [name, setName] = useState('');
   const [room, setRoom] = useState('');
   const [capacity, setCapacity] = useState(6);
@@ -32,11 +33,17 @@ export function CreateGroupSheet({ open, onClose }: { open: boolean; onClose: ()
     queryFn: () => api.get<PublicCourse[]>('/public/courses'),
     enabled: open,
   });
+  const { data: teachers } = useQuery({
+    queryKey: ['admin-teachers'],
+    queryFn: () => api.get<AdminStaff[]>('/admin/teachers'),
+    enabled: open,
+  });
 
   const create = useMutation({
     mutationFn: () =>
       api.post<AdminGroup>('/admin/groups', {
         course_id: courseId,
+        teacher_id: teacherId || undefined,
         name: name.trim(),
         room: room.trim() || undefined,
         capacity,
@@ -48,6 +55,7 @@ export function CreateGroupSheet({ open, onClose }: { open: boolean; onClose: ()
       onClose();
       setName('');
       setRoom('');
+      setTeacherId('');
     },
     onError: () => toast('Не удалось создать группу', 'error'),
   });
@@ -71,6 +79,21 @@ export function CreateGroupSheet({ open, onClose }: { open: boolean; onClose: ()
           </select>
         </label>
         <Input label="Название группы" value={name} onChange={(e) => setName(e.target.value)} />
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-lavender">Преподаватель (необязательно)</span>
+          <select
+            value={teacherId}
+            onChange={(e) => setTeacherId(e.target.value)}
+            className="h-12 w-full rounded-xl border border-purple-mid bg-transparent px-4 text-white outline-none focus:border-purple"
+          >
+            <option value="">Не назначен</option>
+            {teachers?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.full_name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex gap-3">
           <Input label="Кабинет" value={room} onChange={(e) => setRoom(e.target.value)} className="flex-1" />
           <Input
@@ -117,10 +140,6 @@ export function CreateGroupSheet({ open, onClose }: { open: boolean; onClose: ()
             <Plus className="size-4" aria-hidden /> Добавить день
           </button>
         </div>
-
-        <p className="text-xs text-muted">
-          Преподавателя пока нужно назначить отдельно — в API нет ручки для списка сотрудников.
-        </p>
 
         <Button fullWidth size="lg" disabled={!courseId || name.trim().length < 2} loading={create.isPending} onClick={() => create.mutate()}>
           Создать группу

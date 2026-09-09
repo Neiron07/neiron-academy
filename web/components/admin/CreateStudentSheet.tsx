@@ -3,21 +3,24 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import type { CreateStudentResponse, TeacherGroup } from '@/lib/types';
 import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { useToast } from '@/components/ui/Toast';
 import { waLink } from '@/lib/constants';
 
 export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [groupId, setGroupId] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
+  const [error, setError] = useState('');
   const [result, setResult] = useState<CreateStudentResponse | null>(null);
 
   const { data: groups } = useQuery({
@@ -38,8 +41,14 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
             : undefined,
       }),
     onSuccess: (res) => {
+      setError('');
       setResult(res);
       qc.invalidateQueries({ queryKey: ['admin-students'] });
+    },
+    onError: (e) => {
+      const message = e instanceof ApiError ? e.message : 'Не удалось создать ученика. Попробуйте ещё раз.';
+      setError(message);
+      toast(message, 'error');
     },
   });
 
@@ -49,8 +58,11 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
     setGroupId('');
     setParentName('');
     setParentPhone('');
+    setError('');
     setResult(null);
   }
+
+  const parentPartial = (parentName.trim() !== '') !== (parentPhone.trim() !== '');
 
   if (result) {
     return (
@@ -123,8 +135,20 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
           <p className="mb-2 text-sm text-lavender">Родитель (необязательно)</p>
           <Input label="Имя родителя" value={parentName} onChange={(e) => setParentName(e.target.value)} className="mb-3" />
           <PhoneInput value={parentPhone} onChange={setParentPhone} />
+          {parentPartial && (
+            <p className="mt-2 text-sm text-white">
+              Чтобы создать родителя, заполните и имя, и телефон — иначе поле проигнорируется.
+            </p>
+          )}
         </div>
-        <Button fullWidth size="lg" disabled={fullName.trim().length < 2} loading={create.isPending} onClick={() => create.mutate()}>
+        {error && <p className="text-sm text-white">{error}</p>}
+        <Button
+          fullWidth
+          size="lg"
+          disabled={fullName.trim().length < 2 || parentPartial}
+          loading={create.isPending}
+          onClick={() => create.mutate()}
+        >
           Создать
         </Button>
       </div>

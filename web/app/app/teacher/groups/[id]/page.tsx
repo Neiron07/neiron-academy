@@ -11,10 +11,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/format';
+import { ApiError } from '@/lib/api';
 
 export default function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ['group', id],
     queryFn: () => api.get<GroupDetail>(`/teacher/groups/${id}`),
@@ -26,6 +29,7 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const resetPin = useMutation({
     mutationFn: (studentId: string) => api.post<{ pin: string }>(`/teacher/students/${studentId}/reset-pin`),
     onSuccess: (res) => setNewPin(res.pin),
+    onError: (e) => toast(e instanceof ApiError ? e.message : 'Не удалось сбросить PIN', 'error'),
   });
 
   if (isLoading || !data) {

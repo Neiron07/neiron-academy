@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { MessageCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import { waLink } from '@/lib/constants';
 
 export interface ResetPinTarget {
@@ -18,11 +19,13 @@ export interface ResetPinTarget {
 }
 
 export function ResetPinSheet({ target, onClose }: { target: ResetPinTarget | null; onClose: () => void }) {
+  const toast = useToast();
   const [newPin, setNewPin] = useState<string | null>(null);
 
   const resetPin = useMutation({
     mutationFn: (id: string) => api.post<{ pin: string }>(`/admin/users/${id}/reset-pin`),
     onSuccess: (res) => setNewPin(res.pin),
+    onError: (e) => toast(e instanceof ApiError ? e.message : 'Не удалось сбросить PIN', 'error'),
   });
 
   function close() {

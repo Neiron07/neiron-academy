@@ -229,6 +229,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     return created;
   });
 
+  /** Список сотрудников — для выбора преподавателя в группе, пробном уроке и т.д. */
+  app.get('/teachers', { preHandler: admin }, async () => {
+    return query(
+      `select id, full_name, phone, role from users
+        where role in ('teacher','admin') and is_active
+        order by full_name`);
+  });
+
   // =================================================== ГРУППЫ
   app.post('/groups', { preHandler: admin }, async (req) => {
     const body = z.object({
@@ -353,5 +361,112 @@ export default async function adminRoutes(app: FastifyInstance) {
     return one(
       `update leads set status=$2, comment=coalesce($3, comment) where id=$1 returning *`,
       [id, body.status, body.comment ?? null]);
+  });
+
+  // =================================================== КАЛЕНДАРЬ
+  /**
+   * Реальные уроки (из lessons, с именем преподавателя) + пробные/события
+   * (из calendar_events) одним запросом на период — для сетки календаря.
+   */
+  app.get('/calendar', { preHandler: admin }, async (req) => {
+    const q = z.object({ from: z.string(), to: z.string() }).parse(req.query);
+
+    const lessons = await query(
+      `select l.id, l.scheduled_at, l.duration_min, l.status,
+              g.id as group_id, g.name as group_name, g.room,
+              c.name as course_name,
+              u.full_name as teacher_name
+         from lessons l
+         join groups g on g.id = l.group_id
+         join courses c on c.id = g.course_id
+    left join users u on u.id = g.teacher_id
+        where l.scheduled_at::date between $1 and $2
+        order by l.scheduled_at`,
+      [q.from, q.to]);
+
+    const events = await query(
+      `select e.id, e.kind, e.title, e.description, e.starts_at, e.duration_min,
+              e.room, e.contact_name, e.contact_phone, e.lead_id,
+              e.teacher_id, u.full_name as teacher_name
+         from calendar_events e
+    left join users u on u.id = e.teacher_id
+        where e.starts_at::date between $1 and $2
+        order by e.starts_at`,
+      [q.from, q.to]);
+
+    return { lessons, events };
+  });
+
+  app.post('/calendar/events', { preHandler: admin }, async (req) => {
+    const body = z.object({
+      kind: z.enum(['trial', 'event']).default('trial'),
+      title: z.string().min(2).max(200),
+      description: z.string().max(2000).optional(),
+      starts_at: z.string().datetime(),
+      duration_min: z.number().int().positive().default(60),
+      teacher_id: z.string().uuid().optional(),
+      room: z.string().optional(),
+      contact_name: z.string().optional(),
+      contact_phone: z.string().optional(),
+      lead_id: z.string().uuid().optional(),
+    }).parse(req.body);
+
+    const created = await one(
+      `insert into calendar_events
+         (branch_id, kind, title, description, starts_at, duration_min,
+          teacher_id, room, contact_name, contact_phone, lead_id, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning *`,
+      [config.BRANCH_ID, body.kind, body.title, body.description ?? null, body.starts_at,
+       body.duration_min, body.teacher_id ?? null, body.room ?? null,
+       body.contact_name ?? null, body.contact_phone ? normalizePhone(body.contact_phone) : null,
+       body.lead_id ?? null, req.user!.id]);
+
+    await audit({ actorId: req.user!.id, action: 'calendar_event.create', entity: 'calendar_events', entityId: created.id });
+    return created;
+  });
+
+  app.patch('/calendar/events/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      kind: z.enum(['trial', 'event']).optional(),
+      title: z.string().min(2).max(200).optional(),
+      description: z.string().max(2000).nullable().optional(),
+      starts_at: z.string().datetime().optional(),
+      duration_min: z.number().int().positive().optional(),
+      teacher_id: z.string().uuid().nullable().optional(),
+      room: z.string().nullable().optional(),
+      contact_name: z.string().nullable().optional(),
+      contact_phone: z.string().nullable().optional(),
+    }).parse(req.body);
+
+    const existing = await one(`select id from calendar_events where id = $1`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Событие не найдено');
+
+    const updated = await one(
+      `update calendar_events set
+         kind = coalesce($2, kind),
+         title = coalesce($3, title),
+         description = coalesce($4, description),
+         starts_at = coalesce($5, starts_at),
+         duration_min = coalesce($6, duration_min),
+         teacher_id = coalesce($7, teacher_id),
+         room = coalesce($8, room),
+         contact_name = coalesce($9, contact_name),
+         contact_phone = coalesce($10, contact_phone)
+       where id = $1 returning *`,
+      [id, body.kind ?? null, body.title ?? null, body.description ?? null, body.starts_at ?? null,
+       body.duration_min ?? null, body.teacher_id ?? null, body.room ?? null,
+       body.contact_name ?? null, body.contact_phone ? normalizePhone(body.contact_phone) : null]);
+
+    await audit({ actorId: req.user!.id, action: 'calendar_event.update', entity: 'calendar_events', entityId: id, diff: body });
+    return updated;
+  });
+
+  app.delete('/calendar/events/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const deleted = await one(`delete from calendar_events where id = $1 returning id`, [id]);
+    if (!deleted) throw new AppError(404, 'NOT_FOUND', 'Событие не найдено');
+    await audit({ actorId: req.user!.id, action: 'calendar_event.delete', entity: 'calendar_events', entityId: id });
+    return { ok: true };
   });
 }

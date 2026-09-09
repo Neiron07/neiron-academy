@@ -9,6 +9,7 @@ export type LeadStatus = 'new' | 'contacted' | 'trial' | 'won' | 'lost';
 export type RiskLevel = 'warning' | 'critical';
 export type MascotStageCode = 'egg' | 'chick' | 'student' | 'engineer' | 'master';
 export type EquipSlot = 'frame' | 'skin' | 'title' | 'theme';
+export type CalendarEventKind = 'trial' | 'event';
 
 export interface Mascot {
   level: number;
@@ -453,4 +454,44 @@ export interface AdminCoinsAdjustResponse {
   xp: number;
   reason_code: string;
   created_at: string;
+}
+
+export interface AdminStaff {
+  id: string;
+  full_name: string;
+  phone: string;
+  role: 'teacher' | 'admin';
+}
+
+// -------------------------------------------------------------- календарь
+export interface CalendarLesson {
+  id: string;
+  scheduled_at: string;
+  duration_min: number;
+  status: LessonStatus;
+  group_id: string;
+  group_name: string;
+  room: string | null;
+  course_name: string;
+  teacher_name: string | null;
+}
+
+export interface CalendarEvent {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  duration_min: number;
+  room: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  lead_id: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+}
+
+export interface AdminCalendarResponse {
+  lessons: CalendarLesson[];
+  events: CalendarEvent[];
 }
