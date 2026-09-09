@@ -13,6 +13,28 @@ export class ApiError extends Error {
   }
 }
 
+const AUTH_FAILURE_CODES = new Set(['TOKEN_REVOKED', 'NO_TOKEN', 'NO_USER', 'INVALID_TOKEN']);
+
+/**
+ * Кука с токеном httpOnly — из браузера её не стереть. Если её не стереть на сервере,
+ * middleware после редиректа на /login тут же отправит обратно в /app/<role> по одному
+ * факту наличия куки — страница будет бесконечно "мигать" между /login и кабинетом.
+ */
+let clearingSession = false;
+async function clearSessionAndRedirect() {
+  if (typeof window === 'undefined' || clearingSession) return;
+  clearingSession = true;
+  try {
+    await fetch('/api/proxy/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch {
+    // если и это не прошло — всё равно уходим на /login, хуже не будет
+  } finally {
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/proxy${path}`, {
     ...init,
@@ -26,10 +48,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const code = data?.error ?? 'UNKNOWN';
-    if (code === 'TOKEN_REVOKED' || code === 'NO_TOKEN' || code === 'NO_USER' || code === 'INVALID_TOKEN') {
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
-      }
+    if (AUTH_FAILURE_CODES.has(code)) {
+      void clearSessionAndRedirect();
     }
     throw new ApiError(res.status, code, data?.message ?? 'Что-то пошло не так. Попробуйте ещё раз.', data?.details);
   }

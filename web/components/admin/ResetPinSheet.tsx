@@ -2,17 +2,22 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { MessageCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import { waLink } from '@/lib/constants';
 
-export function ResetPinSheet({
-  target,
-  onClose,
-}: {
-  target: { id: string; name: string } | null;
-  onClose: () => void;
-}) {
+export interface ResetPinTarget {
+  id: string;
+  name: string;
+  /** Телефон, на который можно отправить PIN в WhatsApp — свой (родитель) или родителя (ученик). */
+  phone?: string | null;
+  /** Для ученика — логин, чтобы сообщение в WhatsApp было самодостаточным. */
+  login?: string;
+}
+
+export function ResetPinSheet({ target, onClose }: { target: ResetPinTarget | null; onClose: () => void }) {
   const [newPin, setNewPin] = useState<string | null>(null);
 
   const resetPin = useMutation({
@@ -24,6 +29,13 @@ export function ResetPinSheet({
     setNewPin(null);
     onClose();
   }
+
+  const message =
+    target && newPin
+      ? target.login
+        ? `Neiron Academy\nВход в личный кабинет ${target.name}:\nЛогин: ${target.login}\nPIN: ${newPin}`
+        : `Neiron Academy\nВаш вход в личный кабинет — телефон и PIN:\nPIN: ${newPin}`
+      : '';
 
   return (
     <Sheet open={!!target} onClose={close} title={target ? `PIN: ${target.name}` : ''}>
@@ -38,9 +50,18 @@ export function ResetPinSheet({
         <>
           <p className="mb-2 text-sm text-lavender">Новый PIN — покажи один раз, дальше только новый сброс:</p>
           <p className="mb-4 text-center font-display text-4xl font-bold tracking-widest text-white">{newPin}</p>
-          <Button fullWidth onClick={close}>
-            Готово
-          </Button>
+          <div className="flex gap-2">
+            {target?.phone && (
+              <a href={waLink(message, target.phone)} target="_blank" rel="noreferrer" className="flex-1">
+                <Button variant="secondary" fullWidth>
+                  <MessageCircle className="size-4" aria-hidden /> В WhatsApp
+                </Button>
+              </a>
+            )}
+            <Button fullWidth onClick={close}>
+              Готово
+            </Button>
+          </div>
         </>
       )}
     </Sheet>

@@ -11,7 +11,7 @@ import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CreateStudentSheet } from '@/components/admin/CreateStudentSheet';
 import { CoinsAdjustSheet } from '@/components/admin/CoinsAdjustSheet';
-import { ResetPinSheet } from '@/components/admin/ResetPinSheet';
+import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinSheet';
 import { Users } from 'lucide-react';
 
 function StudentsContent() {
@@ -19,7 +19,7 @@ function StudentsContent() {
   const [search, setSearch] = useState(initialSearch);
   const [createOpen, setCreateOpen] = useState(false);
   const [adjustFor, setAdjustFor] = useState<{ id: string; name: string } | null>(null);
-  const [pinFor, setPinFor] = useState<{ id: string; name: string } | null>(null);
+  const [pinFor, setPinFor] = useState<ResetPinTarget | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-students', search],
@@ -82,7 +82,7 @@ function StudentsContent() {
                         {i > 0 && ', '}
                         {p.full_name} ({p.phone})
                         <button
-                          onClick={() => setPinFor({ id: p.id, name: p.full_name })}
+                          onClick={() => setPinFor({ id: p.id, name: p.full_name, phone: p.phone })}
                           className="ml-1 text-lavender hover:text-white"
                           aria-label={`Сбросить PIN у ${p.full_name}`}
                           title="Сбросить PIN родителя"
@@ -95,7 +95,7 @@ function StudentsContent() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1.5">
                       <button
-                        onClick={() => setPinFor({ id: s.id, name: s.full_name })}
+                        onClick={() => setPinFor({ id: s.id, name: s.full_name, phone: s.parents[0]?.phone, login: s.login })}
                         className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
                       >
                         <KeyRound className="size-3.5" aria-hidden /> PIN

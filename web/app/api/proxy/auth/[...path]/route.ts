@@ -11,15 +11,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
   const subpath = path.join('/');
   const isLogout = subpath === 'logout';
 
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  // Логаут — особый случай: локальная сессия должна закрыться, даже если токен уже
+  // невалиден и звонок в бэкенд падает с 401. Иначе бракованная кука не даёт себя стереть,
+  // а middleware бесконечно отскакивает /login <-> /app/<role> ("страница обновляется и ничего не видно").
   if (isLogout) {
     const token = req.cookies.get(COOKIE_TOKEN)?.value;
-    if (token) headers.authorization = `Bearer ${token}`;
+    if (token) {
+      await backendFetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: '{}',
+      }).catch(() => null);
+    }
+    const res = NextResponse.json({ ok: true });
+    res.cookies.delete(COOKIE_TOKEN);
+    res.cookies.delete(COOKIE_ROLE);
+    return res;
   }
 
-  const body = isLogout ? '{}' : await req.text();
-
-  const upstream = await backendFetch(`/api/auth/${subpath}`, { method: 'POST', headers, body });
+  const body = await req.text();
+  const upstream = await backendFetch(`/api/auth/${subpath}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+  });
   const data = await upstream.json().catch(() => ({}));
 
   if (!upstream.ok) {
@@ -28,16 +43,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
 
   const res = NextResponse.json(data.token ? { user: data.user } : data);
 
-  const secure = process.env.NODE_ENV === 'production';
   if (data.token && data.user) {
+    const secure = process.env.NODE_ENV === 'production';
     const maxAge = TOKEN_TTL[data.user.role as Role] ?? 7 * 24 * 3600;
     res.cookies.set(COOKIE_TOKEN, data.token, { httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge });
     res.cookies.set(COOKIE_ROLE, data.user.role, { httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge });
-  }
-
-  if (isLogout) {
-    res.cookies.delete(COOKIE_TOKEN);
-    res.cookies.delete(COOKIE_ROLE);
   }
 
   return res;

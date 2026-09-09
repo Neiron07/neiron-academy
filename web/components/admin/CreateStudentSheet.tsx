@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MessageCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { CreateStudentResponse, TeacherGroup } from '@/lib/types';
 import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { waLink } from '@/lib/constants';
 
 export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
@@ -67,6 +69,21 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
               <p className="text-sm text-lavender">PIN родителя ({parentPhone || 'указанный телефон'})</p>
               <p className="font-display text-3xl font-bold tracking-widest text-white">{result.parent_pin}</p>
               <p className="mt-1 text-sm text-muted">Родитель входит по этому телефону и PIN — так же, как ученик</p>
+              {parentPhone && (
+                <a
+                  href={waLink(
+                    `Neiron Academy\nВаш вход в личный кабинет — этот номер и PIN:\nPIN: ${result.parent_pin}`,
+                    parentPhone,
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 block"
+                >
+                  <Button variant="secondary" fullWidth>
+                    <MessageCircle className="size-4" aria-hidden /> Отправить в WhatsApp
+                  </Button>
+                </a>
+              )}
             </div>
           )}
           <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import Script from 'next/script';
 import { LandingHeader } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
+import { StatsSection } from '@/components/landing/Stats';
 import { CoursesSection } from '@/components/landing/Courses';
 import { WhyUsSection } from '@/components/landing/WhyUs';
 import { HowItWorksSection } from '@/components/landing/HowItWorks';
@@ -12,6 +13,7 @@ import { LocationSection } from '@/components/landing/LocationSection';
 import { LeadFormSection } from '@/components/landing/LeadForm';
 import { Footer } from '@/components/landing/Footer';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
+import { Reveal } from '@/components/ui/Reveal';
 import { SITE } from '@/lib/site-content';
 import { META_PIXEL_ID } from '@/lib/analytics';
 
@@ -35,15 +37,36 @@ export default function LandingPage() {
 
       <LandingHeader />
       <Hero />
-      <CoursesSection />
-      <WhyUsSection />
-      <HowItWorksSection />
-      <StudentWorksSection />
-      <TeachersSection />
-      <TestimonialsSection />
-      <PricingSection />
-      <LocationSection />
-      <LeadFormSection />
+      <Reveal>
+        <StatsSection />
+      </Reveal>
+      <Reveal>
+        <CoursesSection />
+      </Reveal>
+      <Reveal>
+        <WhyUsSection />
+      </Reveal>
+      <Reveal>
+        <HowItWorksSection />
+      </Reveal>
+      <Reveal>
+        <StudentWorksSection />
+      </Reveal>
+      <Reveal>
+        <TeachersSection />
+      </Reveal>
+      <Reveal>
+        <TestimonialsSection />
+      </Reveal>
+      <Reveal>
+        <PricingSection />
+      </Reveal>
+      <Reveal>
+        <LocationSection />
+      </Reveal>
+      <Reveal>
+        <LeadFormSection />
+      </Reveal>
       <Footer />
       <WhatsAppFab />
     </>
