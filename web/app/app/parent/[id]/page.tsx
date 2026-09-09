@@ -7,8 +7,10 @@ import { api } from '@/lib/api';
 import type { ParentOverview } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { CoinIcon } from '@/components/ui/CoinIcon';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { waLink } from '@/lib/constants';
+import { formatNumber } from '@/lib/format';
 
 export default function ParentOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -47,6 +49,14 @@ export default function ParentOverviewPage({ params }: { params: Promise<{ id: s
           <p className="text-sm text-muted">занятий осталось</p>
         </Card>
       </div>
+
+      <Card className="flex items-center justify-between">
+        <p className="text-sm text-lavender">Коины ребёнка</p>
+        <span className="flex items-center gap-1.5 font-display text-xl font-bold text-white">
+          <CoinIcon className="size-5" />
+          {formatNumber(data.coins)}
+        </span>
+      </Card>
 
       {data.topicsCovered.length > 0 && (
         <Card>

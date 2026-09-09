@@ -14,6 +14,7 @@ import { CreateStudentSheet } from '@/components/admin/CreateStudentSheet';
 import { CoinsAdjustSheet } from '@/components/admin/CoinsAdjustSheet';
 import { StudentFormSheet } from '@/components/admin/StudentFormSheet';
 import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinSheet';
+import { CoinIcon } from '@/components/ui/CoinIcon';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatKzt } from '@/lib/format';
 import { daysUntil, paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
@@ -87,6 +88,7 @@ function StudentsContent() {
             <thead>
               <tr className="border-b border-purple-mid text-lavender">
                 <th className="px-4 py-3 font-medium">Ученик</th>
+                <th className="px-4 py-3 font-medium">Коины</th>
                 <th className="px-4 py-3 font-medium">Филиал</th>
                 <th className="px-4 py-3 font-medium">Телефон</th>
                 <th className="px-4 py-3 font-medium">Группа</th>
@@ -108,6 +110,12 @@ function StudentsContent() {
                     <td className="px-4 py-3">
                       <p className="text-white">{s.full_name}</p>
                       <p className="text-xs text-muted">{s.login}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5 font-display font-semibold text-white">
+                        <CoinIcon className="size-4" />
+                        {s.coins_balance}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-lavender">{s.branch_name ?? '—'}</td>
                     <td className="px-4 py-3 text-lavender">
