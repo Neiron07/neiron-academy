@@ -5,6 +5,7 @@ import { AppError } from '../lib/errors.js';
 import { generateLogin, generatePin, hash, normalizePhone } from '../lib/auth.js';
 import { applyCoins } from '../lib/coins.js';
 import { audit } from '../lib/audit.js';
+import { estimateNextPayment } from '../lib/payments.js';
 import { config } from '../config.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
@@ -12,7 +13,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // =================================================== ДАШБОРД
   app.get('/dashboard', { preHandler: admin }, async () => {
-    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads] =
+    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads, totalStudents, paymentRows] =
       await Promise.all([
         one(`select count(*) filter (where status='completed')::int as completed,
                     count(*) filter (where status='planned')::int   as planned
@@ -42,6 +43,13 @@ export default async function adminRoutes(app: FastifyInstance) {
               where o.status='pending' and i.kind <> 'virtual'`),
 
         one(`select count(*)::int as cnt from leads where status='new'`),
+
+        one(`select count(*)::int as cnt from users where role='student' and is_active`),
+
+        query(`select u.id, u.full_name, pay.last_payment_amount, pay.last_payment_at,
+                      pay.lessons_left, pay.weekly_lessons
+                 from users u join v_student_payment_status pay on pay.student_id = u.id
+                where u.role='student' and u.is_active and pay.last_payment_at is not null`),
       ]);
 
     const debtors = await query(
@@ -50,8 +58,21 @@ export default async function adminRoutes(app: FastifyInstance) {
         where lb.lessons_left <= 2 and u.is_active
         order by lb.lessons_left`);
 
+    // Просроченные и скоро наступающие оплаты — оценка по темпу занятий, не жёсткая дата.
+    const paymentsDue = paymentRows
+      .map((r: any) => {
+        const estimate = estimateNextPayment(r.last_payment_at, r.lessons_left, r.weekly_lessons);
+        if (!estimate) return null;
+        const days = Math.round((new Date(estimate).getTime() - Date.now()) / 86_400_000);
+        return { id: r.id, full_name: r.full_name, amount: r.last_payment_amount, next_payment_estimate: estimate, days };
+      })
+      .filter((r: any): r is NonNullable<typeof r> => !!r && r.days <= 7)
+      .sort((a: any, b: any) => a.days - b.days)
+      .slice(0, 20);
+
     return {
-      lessonsToday, notClosed, groups, money, atRisk, debtors,
+      lessonsToday, notClosed, groups, money, atRisk, debtors, paymentsDue,
+      totalStudents: totalStudents?.cnt ?? 0,
       pendingOrders: pendingOrders?.cnt ?? 0,
       newLeads: newLeads?.cnt ?? 0,
     };
@@ -156,12 +177,11 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.get('/students', { preHandler: admin }, async (req) => {
     const q = z.object({ search: z.string().optional(), status: z.string().optional() }).parse(req.query);
     const rows = await query(
-      `select u.id, u.full_name, u.login, u.is_active, u.branch_id,
+      `select u.id, u.full_name, u.login, u.is_active, u.branch_id, u.created_at,
               b.name as branch_name,
-              s.status, s.coins_balance, s.xp_total,
+              s.status, s.birth_date, s.coins_balance, s.xp_total,
               g.id as group_id, g.name as group_name, e.joined_at,
-              lb.lessons_left,
-              wk.weekly_lessons,
+              pay.lessons_left, pay.weekly_lessons,
               pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
               (select pu.phone from parents_students ps join users pu on pu.id=ps.parent_id
                 where ps.student_id = u.id order by ps.is_primary desc limit 1) as phone,
@@ -173,35 +193,79 @@ export default async function adminRoutes(app: FastifyInstance) {
     left join branches b on b.id = u.branch_id
     left join enrollments e on e.student_id = u.id and e.status='active'
     left join groups g on g.id = e.group_id
-    left join v_lesson_balance lb on lb.student_id = u.id
-    left join (
-           select e2.student_id, count(gs.id)::int as weekly_lessons
-             from enrollments e2 join group_schedule gs on gs.group_id = e2.group_id
-            where e2.status = 'active'
-            group by e2.student_id
-         ) wk on wk.student_id = u.id
-    left join (
-           select student_id, sum(amount_kzt)::int as total_paid, max(paid_at) as last_payment_at,
-                  (array_agg(amount_kzt order by paid_at desc))[1] as last_payment_amount
-             from payments group by student_id
-         ) pay on pay.student_id = u.id
+    left join v_student_payment_status pay on pay.student_id = u.id
         where u.role='student'
           and ($1::text is null or u.full_name ilike '%'||$1||'%' or u.login ilike '%'||$1||'%')
           and ($2::text is null or s.status = $2::enroll_status)
         order by u.full_name`,
       [q.search ?? null, q.status ?? null]);
 
-    // Оценка следующей оплаты: последняя оплата + сколько недель хватит оставшихся уроков в темпе группы.
-    return rows.map((r: any) => {
-      let next_payment_estimate: string | null = null;
-      if (r.last_payment_at && r.weekly_lessons > 0 && r.lessons_left !== null) {
-        const weeks = Math.max(0, Math.ceil(Number(r.lessons_left) / Number(r.weekly_lessons)));
-        const d = new Date(r.last_payment_at);
-        d.setDate(d.getDate() + weeks * 7);
-        next_payment_estimate = d.toISOString();
+    return rows.map((r: any) => ({
+      ...r,
+      next_payment_estimate: estimateNextPayment(r.last_payment_at, r.lessons_left, r.weekly_lessons),
+    }));
+  });
+
+  /** Редактирование ученика: имя, дата рождения, филиал, активность. */
+  app.patch('/students/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      full_name: z.string().min(2).optional(),
+      birth_date: z.string().nullable().optional(),
+      branch_id: z.string().uuid().optional(),
+      is_active: z.boolean().optional(),
+    }).parse(req.body);
+
+    const existing = await one<{ id: string }>(`select id from users where id=$1 and role='student'`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Ученик не найден');
+
+    await tx(async (c) => {
+      if (body.full_name !== undefined || body.branch_id !== undefined || body.is_active !== undefined) {
+        await c.query(
+          `update users set
+             full_name = coalesce($2, full_name),
+             branch_id = coalesce($3, branch_id),
+             is_active = coalesce($4, is_active),
+             token_version = case when $4 = false then token_version + 1 else token_version end
+           where id = $1`,
+          [id, body.full_name ?? null, body.branch_id ?? null, body.is_active ?? null]);
       }
-      return { ...r, next_payment_estimate };
+      if (body.birth_date !== undefined) {
+        await c.query(`update students set birth_date=$2 where user_id=$1`, [id, body.birth_date]);
+      }
     });
+
+    await audit({ actorId: req.user!.id, action: 'student.update', entity: 'users', entityId: id, diff: body });
+    return one(
+      `select u.id, u.full_name, u.is_active, u.branch_id, s.birth_date
+         from users u join students s on s.user_id=u.id where u.id=$1`, [id]);
+  });
+
+  /**
+   * Удаление ученика: настоящий DELETE — только если по нему нет платежей,
+   * посещаемости и истории коинов (значит, это пустая запись без активности).
+   * Если история есть — предлагаем деактивировать, а не стирать её.
+   */
+  app.delete('/students/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const existing = await one<{ id: string }>(`select id from users where id=$1 and role='student'`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Ученик не найден');
+
+    const activity = await one<{ has_activity: boolean }>(
+      `select exists(select 1 from payments where student_id=$1)
+           or exists(select 1 from attendance where student_id=$1)
+           or exists(select 1 from coin_transactions where student_id=$1)
+              as has_activity`, [id]);
+
+    if (activity?.has_activity) {
+      throw new AppError(409, 'HAS_HISTORY',
+        'У ученика есть платежи, посещаемость или коины — удалить нельзя, чтобы не потерять историю. Деактивируйте вместо удаления.');
+    }
+
+    await query(`delete from users where id=$1`, [id]);
+    await audit({ actorId: req.user!.id, action: 'student.delete', entity: 'users', entityId: id });
+    return { ok: true };
   });
 
   /** Филиалы — для выбора при создании ученика или группы. */
@@ -375,6 +439,60 @@ export default async function adminRoutes(app: FastifyInstance) {
       await c.query(`select generate_lessons(14)`);
       return g.rows[0];
     });
+  });
+
+  /** Редактирование группы: имя, кабинет, вместимость, преподаватель, филиал, статус. */
+  app.patch('/groups/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      name: z.string().min(2).optional(),
+      room: z.string().nullable().optional(),
+      capacity: z.number().int().min(1).max(30).optional(),
+      teacher_id: z.string().uuid().nullable().optional(),
+      branch_id: z.string().uuid().optional(),
+      status: z.enum(['active', 'archived']).optional(),
+    }).parse(req.body);
+
+    const existing = await one<{ id: string }>(`select id from groups where id=$1`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Группа не найдена');
+
+    const updated = await one(
+      `update groups set
+         name = coalesce($2, name),
+         room = coalesce($3, room),
+         capacity = coalesce($4, capacity),
+         teacher_id = coalesce($5, teacher_id),
+         branch_id = coalesce($6, branch_id),
+         status = coalesce($7, status)::group_status
+       where id = $1 returning *`,
+      [id, body.name ?? null, body.room ?? null, body.capacity ?? null,
+       body.teacher_id ?? null, body.branch_id ?? null, body.status ?? null]);
+
+    await audit({ actorId: req.user!.id, action: 'group.update', entity: 'groups', entityId: id, diff: body });
+    return updated;
+  });
+
+  /**
+   * Удаление группы: настоящий DELETE — только если у группы никогда не было
+   * уроков (пустая, ничего не потеряется). Иначе архивируем: она пропадает
+   * из активных списков, а история учеников остаётся целой.
+   */
+  app.delete('/groups/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const existing = await one<{ id: string }>(`select id from groups where id=$1`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Группа не найдена');
+
+    const hasLessons = await one(`select 1 from lessons where group_id=$1 limit 1`, [id]);
+    if (hasLessons) {
+      await query(`update groups set status='archived' where id=$1`, [id]);
+      await audit({ actorId: req.user!.id, action: 'group.archive', entity: 'groups', entityId: id });
+      return { ok: true, archived: true };
+    }
+
+    await query(`delete from groups where id=$1`, [id]);
+    await audit({ actorId: req.user!.id, action: 'group.delete', entity: 'groups', entityId: id });
+    return { ok: true, archived: false };
   });
 
   // =================================================== ОПЛАТЫ

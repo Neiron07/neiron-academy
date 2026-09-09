@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Phone, AlertTriangle } from 'lucide-react';
+import { Phone, AlertTriangle, Wallet } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { AdminDashboard } from '@/lib/types';
 import { Card, InvertCard } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatKzt, formatRelativeDateTime } from '@/lib/format';
+import { paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
 
 export default function AdminDashboardPage() {
   const { data, isLoading } = useQuery({
@@ -81,6 +82,70 @@ export default function AdminDashboardPage() {
                 <StatusBadge tone={d.lessons_left <= 0 ? 'negative' : 'neutral'} label={`${d.lessons_left} ост.`} />
               </Card>
             ))}
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card>
+          <p className="text-sm text-lavender">Учеников</p>
+          <p className="font-display text-2xl font-bold text-white">{data.totalStudents}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-lavender">Групп</p>
+          <p className="font-display text-2xl font-bold text-white">{data.groups.length}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-lavender">Свободных мест</p>
+          <p className="font-display text-2xl font-bold text-white">
+            {data.groups.reduce((sum, g) => sum + Math.max(0, g.capacity - g.filled), 0)}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-lavender">Просрочено оплат</p>
+          <p className="font-display text-2xl font-bold text-white">{data.paymentsDue.filter((p) => p.days < 0).length}</p>
+        </Card>
+      </div>
+
+      {data.paymentsDue.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-lavender">
+              <Wallet className="size-4" aria-hidden /> Оплаты — требуют внимания
+            </p>
+            <Link href="/app/admin/students" className="text-sm text-lavender hover:text-white">
+              Все ученики →
+            </Link>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-purple-mid">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-purple-mid text-lavender">
+                  <th className="px-4 py-3 font-medium">Ученик</th>
+                  <th className="px-4 py-3 font-medium">Сумма</th>
+                  <th className="px-4 py-3 font-medium">Следующая оплата</th>
+                  <th className="px-4 py-3 font-medium">Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.paymentsDue.map((p) => (
+                  <tr key={p.id} className="border-b border-purple-mid/40 last:border-0">
+                    <td className="px-4 py-3">
+                      <Link href={`/app/admin/students?search=${encodeURIComponent(p.full_name)}`} className="text-white hover:underline">
+                        {p.full_name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-white">{p.amount ? formatKzt(p.amount) : '—'}</td>
+                    <td className="px-4 py-3 text-lavender">{formatRelativeDateTime(p.next_payment_estimate)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(p.days)}`}>
+                        {paymentLabel(p.days)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}

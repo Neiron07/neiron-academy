@@ -71,19 +71,21 @@ export default async function teacherRoutes(app: FastifyInstance) {
       [from, to, req.user!.role === 'admin', req.user!.id]);
   });
 
-  /** Мои группы. */
+  /** Мои группы. Админ с ?status=all видит и архивные (для управления). */
   app.get('/groups', { preHandler: staff }, async (req) => {
+    const q = z.object({ status: z.string().optional() }).parse(req.query);
+    const includeArchived = req.user!.role === 'admin' && q.status === 'all';
     return query(
-      `select g.id, g.name, g.room, g.capacity, c.name as course_name,
-              t.title as current_topic, b.name as branch_name,
+      `select g.id, g.name, g.room, g.capacity, g.status, c.name as course_name,
+              t.title as current_topic, b.name as branch_name, g.teacher_id,
               (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as students_count
          from groups g
          join courses c on c.id = g.course_id
     left join topics t on t.id = g.current_topic_id
     left join branches b on b.id = g.branch_id
-        where g.status = 'active' and ($1 or g.teacher_id = $2)
-        order by g.name`,
-      [req.user!.role === 'admin', req.user!.id]);
+        where ($3 or g.status = 'active') and ($1 or g.teacher_id = $2)
+        order by g.status, g.name`,
+      [req.user!.role === 'admin', req.user!.id, includeArchived]);
   });
 
   /** Карточка группы: состав, посещаемость, прогресс. */

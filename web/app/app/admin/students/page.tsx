@@ -2,9 +2,9 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Coins, Search, KeyRound } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Coins, Search, KeyRound, Pencil, Trash2 } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
 import type { AdminStudentRow } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -12,8 +12,11 @@ import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CreateStudentSheet } from '@/components/admin/CreateStudentSheet';
 import { CoinsAdjustSheet } from '@/components/admin/CoinsAdjustSheet';
+import { StudentFormSheet } from '@/components/admin/StudentFormSheet';
 import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinSheet';
+import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatKzt } from '@/lib/format';
+import { daysUntil, paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
 import { Users } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -23,9 +26,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function StudentsContent() {
+  const qc = useQueryClient();
+  const toast = useToast();
   const initialSearch = useSearchParams().get('search') ?? '';
   const [search, setSearch] = useState(initialSearch);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editStudent, setEditStudent] = useState<AdminStudentRow | null>(null);
   const [adjustFor, setAdjustFor] = useState<{ id: string; name: string } | null>(null);
   const [pinFor, setPinFor] = useState<ResetPinTarget | null>(null);
 
@@ -33,6 +39,19 @@ function StudentsContent() {
     queryKey: ['admin-students', search],
     queryFn: () => api.get<AdminStudentRow[]>(`/admin/students${search ? `?search=${encodeURIComponent(search)}` : ''}`),
   });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/students/${id}`),
+    onSuccess: () => {
+      toast('Ученик удалён', 'success');
+      qc.invalidateQueries({ queryKey: ['admin-students'] });
+    },
+    onError: (e) => toast(e instanceof ApiError ? e.message : 'Не удалось удалить ученика', 'error'),
+  });
+
+  function handleDelete(s: AdminStudentRow) {
+    if (window.confirm(`Удалить ${s.full_name}? Это необратимо.`)) remove.mutate(s.id);
+  }
 
   return (
     <div>
@@ -82,8 +101,9 @@ function StudentsContent() {
             <tbody>
               {data.map((s) => {
                 const primaryParent = s.parents[0];
+                const days = s.next_payment_estimate ? daysUntil(s.next_payment_estimate) : null;
                 return (
-                  <tr key={s.id} className="border-b border-purple-mid/40 last:border-0">
+                  <tr key={s.id} className={`border-b border-purple-mid/40 last:border-0 ${!s.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3">
                       <p className="text-white">{s.full_name}</p>
                       <p className="text-xs text-muted">{s.login}</p>
@@ -107,26 +127,50 @@ function StudentsContent() {
                     <td className="px-4 py-3">
                       <StatusBadge
                         tone={s.status === 'active' ? 'positive' : s.status === 'paused' ? 'neutral' : 'negative'}
-                        label={STATUS_LABEL[s.status] ?? s.status}
+                        label={s.is_active ? (STATUS_LABEL[s.status] ?? s.status) : 'Отчислен'}
                       />
                     </td>
                     <td className="px-4 py-3 text-white">{s.last_payment_amount ? formatKzt(s.last_payment_amount) : '—'}</td>
                     <td className="px-4 py-3 text-white">{s.total_paid ? formatKzt(s.total_paid) : '—'}</td>
                     <td className="px-4 py-3 text-lavender">{s.last_payment_at ? formatDate(s.last_payment_at) : '—'}</td>
-                    <td className="px-4 py-3 text-lavender">{s.next_payment_estimate ? formatDate(s.next_payment_estimate) : '—'}</td>
+                    <td className="px-4 py-3">
+                      {days === null ? (
+                        <span className="text-lavender">—</span>
+                      ) : (
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(days)}`}>
+                          {paymentLabel(days)}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
                         <button
                           onClick={() => setPinFor({ id: s.id, name: s.full_name, phone: primaryParent?.phone, login: s.login })}
                           className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                          title="Сбросить PIN"
                         >
-                          <KeyRound className="size-3.5" aria-hidden /> PIN
+                          <KeyRound className="size-3.5" aria-hidden />
                         </button>
                         <button
                           onClick={() => setAdjustFor({ id: s.id, name: s.full_name })}
                           className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                          title="Коины"
                         >
-                          <Coins className="size-3.5" aria-hidden /> Коины
+                          <Coins className="size-3.5" aria-hidden />
+                        </button>
+                        <button
+                          onClick={() => setEditStudent(s)}
+                          className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                          title="Изменить"
+                        >
+                          <Pencil className="size-3.5" aria-hidden />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(s)}
+                          className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                          title="Удалить"
+                        >
+                          <Trash2 className="size-3.5" aria-hidden />
                         </button>
                       </div>
                     </td>
@@ -139,6 +183,7 @@ function StudentsContent() {
       )}
 
       <CreateStudentSheet open={createOpen} onClose={() => setCreateOpen(false)} />
+      <StudentFormSheet student={editStudent} onClose={() => setEditStudent(null)} />
       <CoinsAdjustSheet studentId={adjustFor?.id ?? null} studentName={adjustFor?.name ?? ''} onClose={() => setAdjustFor(null)} />
       <ResetPinSheet target={pinFor} onClose={() => setPinFor(null)} />
     </div>

@@ -220,6 +220,8 @@ export interface TeacherGroup {
   name: string;
   room: string | null;
   capacity: number;
+  status?: 'active' | 'archived';
+  teacher_id?: string | null;
   course_name: string;
   current_topic: string | null;
   branch_name: string | null;
@@ -376,6 +378,8 @@ export interface AdminDashboard {
     risk_level: RiskLevel;
   }[];
   debtors: { id: string; full_name: string; lessons_left: number }[];
+  paymentsDue: PaymentDueRow[];
+  totalStudents: number;
   pendingOrders: number;
   newLeads: number;
 }
@@ -411,7 +415,9 @@ export interface AdminStudentRow {
   is_active: boolean;
   branch_id: string | null;
   branch_name: string | null;
+  created_at: string;
   status: string;
+  birth_date: string | null;
   coins_balance: number;
   xp_total: number;
   group_id: string | null;
@@ -425,6 +431,14 @@ export interface AdminStudentRow {
   next_payment_estimate: string | null;
   phone: string | null;
   parents: AdminStudentParent[];
+}
+
+export interface PaymentDueRow {
+  id: string;
+  full_name: string;
+  amount: number | null;
+  next_payment_estimate: string;
+  days: number;
 }
 
 export interface Branch {
