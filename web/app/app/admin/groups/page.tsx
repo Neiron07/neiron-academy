@@ -40,6 +40,7 @@ export default function AdminGroupsPage() {
           <Card key={g.id}>
             <p className="font-medium text-white">{g.name}</p>
             <p className="text-sm text-lavender">{g.course_name}</p>
+            {g.branch_name && <p className="text-sm text-lavender">{g.branch_name}</p>}
             <p className="mt-2 text-sm text-muted">
               {g.students_count}/{g.capacity} учеников{g.room && ` · ${g.room}`}
             </p>

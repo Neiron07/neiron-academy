@@ -82,6 +82,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       full_name: z.string().min(2),
       birth_date: z.string().optional(),
+      branch_id: z.string().uuid().optional(),
       group_id: z.string().uuid().optional(),
       parent: z.object({
         full_name: z.string().min(2),
@@ -97,7 +98,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       const u = await c.query(
         `insert into users (branch_id, role, full_name, login, pin_hash, created_by)
          values ($1,'student',$2,$3,$4,$5) returning id`,
-        [config.BRANCH_ID, body.full_name, login, await hash(pin), req.user!.id]);
+        [body.branch_id ?? config.BRANCH_ID, body.full_name, login, await hash(pin), req.user!.id]);
       const studentId = u.rows[0].id;
 
       await c.query(`insert into students (user_id, birth_date) values ($1,$2)`,
@@ -129,7 +130,7 @@ export default async function adminRoutes(app: FastifyInstance) {
           const p = await c.query(
             `insert into users (branch_id, role, full_name, phone, pin_hash, created_by)
              values ($1,'parent',$2,$3,$4,$5) returning id`,
-            [config.BRANCH_ID, body.parent.full_name, phone, await hash(parentPin), req.user!.id]);
+            [body.branch_id ?? config.BRANCH_ID, body.parent.full_name, phone, await hash(parentPin), req.user!.id]);
           parentId = p.rows[0].id;
         }
         await c.query(
@@ -154,22 +155,58 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   app.get('/students', { preHandler: admin }, async (req) => {
     const q = z.object({ search: z.string().optional(), status: z.string().optional() }).parse(req.query);
-    return query(
-      `select u.id, u.full_name, u.login, u.is_active, s.status, s.coins_balance, s.xp_total,
-              g.name as group_name, lb.lessons_left,
+    const rows = await query(
+      `select u.id, u.full_name, u.login, u.is_active, u.branch_id,
+              b.name as branch_name,
+              s.status, s.coins_balance, s.xp_total,
+              g.id as group_id, g.name as group_name, e.joined_at,
+              lb.lessons_left,
+              wk.weekly_lessons,
+              pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
+              (select pu.phone from parents_students ps join users pu on pu.id=ps.parent_id
+                where ps.student_id = u.id order by ps.is_primary desc limit 1) as phone,
               (select coalesce(json_agg(json_build_object('id', pu.id, 'full_name', pu.full_name, 'phone', pu.phone)), '[]')
                  from parents_students ps join users pu on pu.id=ps.parent_id
                 where ps.student_id = u.id) as parents
          from users u
          join students s on s.user_id = u.id
+    left join branches b on b.id = u.branch_id
     left join enrollments e on e.student_id = u.id and e.status='active'
     left join groups g on g.id = e.group_id
     left join v_lesson_balance lb on lb.student_id = u.id
+    left join (
+           select e2.student_id, count(gs.id)::int as weekly_lessons
+             from enrollments e2 join group_schedule gs on gs.group_id = e2.group_id
+            where e2.status = 'active'
+            group by e2.student_id
+         ) wk on wk.student_id = u.id
+    left join (
+           select student_id, sum(amount_kzt)::int as total_paid, max(paid_at) as last_payment_at,
+                  (array_agg(amount_kzt order by paid_at desc))[1] as last_payment_amount
+             from payments group by student_id
+         ) pay on pay.student_id = u.id
         where u.role='student'
           and ($1::text is null or u.full_name ilike '%'||$1||'%' or u.login ilike '%'||$1||'%')
           and ($2::text is null or s.status = $2::enroll_status)
         order by u.full_name`,
       [q.search ?? null, q.status ?? null]);
+
+    // Оценка следующей оплаты: последняя оплата + сколько недель хватит оставшихся уроков в темпе группы.
+    return rows.map((r: any) => {
+      let next_payment_estimate: string | null = null;
+      if (r.last_payment_at && r.weekly_lessons > 0 && r.lessons_left !== null) {
+        const weeks = Math.max(0, Math.ceil(Number(r.lessons_left) / Number(r.weekly_lessons)));
+        const d = new Date(r.last_payment_at);
+        d.setDate(d.getDate() + weeks * 7);
+        next_payment_estimate = d.toISOString();
+      }
+      return { ...r, next_payment_estimate };
+    });
+  });
+
+  /** Филиалы — для выбора при создании ученика или группы. */
+  app.get('/branches', { preHandler: admin }, async () => {
+    return query(`select id, name, address, is_active from branches where is_active order by name`);
   });
 
   /**
@@ -211,6 +248,45 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   // =================================================== ПЕРСОНАЛ
+  /**
+   * Единый источник преподавателей: этот же список (и только он) используют
+   * выбор преподавателя в группе и в календаре — никаких отдельных списков.
+   * Отдаёт и активных, и деактивированных — фронт сам решает, где кого показывать.
+   */
+  app.get('/teachers', { preHandler: admin }, async () => {
+    return query(
+      `select u.id, u.full_name, u.phone, u.role, u.is_active, u.created_at,
+              (select count(*) from groups g where g.teacher_id = u.id and g.status='active') as groups_count
+         from users u
+        where u.role in ('teacher','admin')
+        order by u.is_active desc, u.full_name`);
+  });
+
+  /** Карточка сотрудника: сам + его группы + назначенные на него пробные/события. */
+  app.get('/teachers/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+
+    const teacher = await one(
+      `select id, full_name, phone, role, is_active, created_at from users
+        where id = $1 and role in ('teacher','admin')`, [id]);
+    if (!teacher) throw new AppError(404, 'NOT_FOUND', 'Сотрудник не найден');
+
+    const groups = await query(
+      `select g.id, g.name, g.room, g.capacity, c.name as course_name,
+              (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as students_count
+         from groups g join courses c on c.id = g.course_id
+        where g.teacher_id = $1 and g.status='active'
+        order by g.name`, [id]);
+
+    const events = await query(
+      `select id, kind, title, starts_at, duration_min, room, contact_name, contact_phone
+         from calendar_events
+        where teacher_id = $1 and starts_at > now() - interval '1 day'
+        order by starts_at`, [id]);
+
+    return { teacher, groups, events };
+  });
+
   app.post('/teachers', { preHandler: admin }, async (req) => {
     const body = z.object({
       full_name: z.string().min(2),
@@ -219,9 +295,9 @@ export default async function adminRoutes(app: FastifyInstance) {
       role: z.enum(['teacher', 'admin']).default('teacher'),
     }).parse(req.body);
 
-    const created = await one<{ id: string }>(
+    const created = await one(
       `insert into users (branch_id, role, full_name, phone, password_hash, created_by)
-       values ($1,$2,$3,$4,$5,$6) returning id`,
+       values ($1,$2,$3,$4,$5,$6) returning id, full_name, phone, role, is_active, created_at`,
       [config.BRANCH_ID, body.role, body.full_name, normalizePhone(body.phone),
        await hash(body.password), req.user!.id]);
 
@@ -229,12 +305,42 @@ export default async function adminRoutes(app: FastifyInstance) {
     return created;
   });
 
-  /** Список сотрудников — для выбора преподавателя в группе, пробном уроке и т.д. */
-  app.get('/teachers', { preHandler: admin }, async () => {
-    return query(
-      `select id, full_name, phone, role from users
-        where role in ('teacher','admin') and is_active
-        order by full_name`);
+  /**
+   * Редактирование сотрудника: имя/телефон/роль, деактивация/восстановление,
+   * необязательный сброс пароля. Хард-делит не делаем — на преподавателя могут
+   * ссылаться группы и история, а живых занятий это не должно ломать.
+   */
+  app.patch('/teachers/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      full_name: z.string().min(2).optional(),
+      phone: z.string().optional(),
+      role: z.enum(['teacher', 'admin']).optional(),
+      is_active: z.boolean().optional(),
+      password: z.string().min(8).optional(),
+    }).parse(req.body);
+
+    const existing = await one<{ id: string }>(
+      `select id from users where id = $1 and role in ('teacher','admin')`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Сотрудник не найден');
+
+    const passwordHash = body.password ? await hash(body.password) : null;
+
+    const updated = await one(
+      `update users set
+         full_name = coalesce($2, full_name),
+         phone = coalesce($3, phone),
+         role = coalesce($4, role)::user_role,
+         is_active = coalesce($5, is_active),
+         password_hash = coalesce($6, password_hash),
+         token_version = case when $5 = false or $6 is not null then token_version + 1 else token_version end
+       where id = $1
+       returning id, full_name, phone, role, is_active, created_at`,
+      [id, body.full_name ?? null, body.phone ? normalizePhone(body.phone) : null, body.role ?? null,
+       body.is_active ?? null, passwordHash]);
+
+    await audit({ actorId: req.user!.id, action: 'staff.update', entity: 'users', entityId: id, diff: { ...body, password: body.password ? '***' : undefined } });
+    return updated;
   });
 
   // =================================================== ГРУППЫ
@@ -242,6 +348,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       course_id: z.string().uuid(),
       teacher_id: z.string().uuid().optional(),
+      branch_id: z.string().uuid().optional(),
       name: z.string().min(2),
       room: z.string().optional(),
       capacity: z.number().int().min(1).max(30).default(6),
@@ -256,7 +363,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       const g = await c.query(
         `insert into groups (branch_id, course_id, teacher_id, name, room, capacity)
          values ($1,$2,$3,$4,$5,$6) returning *`,
-        [config.BRANCH_ID, body.course_id, body.teacher_id ?? null, body.name,
+        [body.branch_id ?? config.BRANCH_ID, body.course_id, body.teacher_id ?? null, body.name,
          body.room ?? null, body.capacity]);
 
       for (const s of body.schedule) {

@@ -222,6 +222,7 @@ export interface TeacherGroup {
   capacity: number;
   course_name: string;
   current_topic: string | null;
+  branch_name: string | null;
   students_count: number;
 }
 
@@ -408,12 +409,29 @@ export interface AdminStudentRow {
   full_name: string;
   login: string;
   is_active: boolean;
+  branch_id: string | null;
+  branch_name: string | null;
   status: string;
   coins_balance: number;
   xp_total: number;
+  group_id: string | null;
   group_name: string | null;
+  joined_at: string | null;
   lessons_left: number | null;
+  weekly_lessons: number | null;
+  total_paid: number | null;
+  last_payment_at: string | null;
+  last_payment_amount: number | null;
+  next_payment_estimate: string | null;
+  phone: string | null;
   parents: AdminStudentParent[];
+}
+
+export interface Branch {
+  id: string;
+  name: string;
+  address: string | null;
+  is_active: boolean;
 }
 
 export interface CreateStudentResponse {
@@ -461,6 +479,35 @@ export interface AdminStaff {
   full_name: string;
   phone: string;
   role: 'teacher' | 'admin';
+  is_active: boolean;
+  created_at: string;
+  groups_count: number;
+}
+
+export interface AdminStaffGroup {
+  id: string;
+  name: string;
+  room: string | null;
+  capacity: number;
+  course_name: string;
+  students_count: number;
+}
+
+export interface AdminStaffEvent {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  starts_at: string;
+  duration_min: number;
+  room: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+}
+
+export interface AdminStaffDetail {
+  teacher: AdminStaff;
+  groups: AdminStaffGroup[];
+  events: AdminStaffEvent[];
 }
 
 // -------------------------------------------------------------- календарь

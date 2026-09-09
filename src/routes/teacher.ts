@@ -75,11 +75,12 @@ export default async function teacherRoutes(app: FastifyInstance) {
   app.get('/groups', { preHandler: staff }, async (req) => {
     return query(
       `select g.id, g.name, g.room, g.capacity, c.name as course_name,
-              t.title as current_topic,
+              t.title as current_topic, b.name as branch_name,
               (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as students_count
          from groups g
          join courses c on c.id = g.course_id
-         left join topics t on t.id = g.current_topic_id
+    left join topics t on t.id = g.current_topic_id
+    left join branches b on b.id = g.branch_id
         where g.status = 'active' and ($1 or g.teacher_id = $2)
         order by g.name`,
       [req.user!.role === 'admin', req.user!.id]);

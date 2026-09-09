@@ -171,11 +171,14 @@ export function CalendarEventSheet({
             className="h-12 w-full rounded-xl border border-purple-mid bg-transparent px-4 text-white outline-none focus:border-purple"
           >
             <option value="">Не назначен</option>
-            {teachers?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.full_name}
-              </option>
-            ))}
+            {teachers
+              ?.filter((t) => t.is_active || t.id === teacherId)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name}
+                  {!t.is_active ? ' (деактивирован)' : ''}
+                </option>
+              ))}
           </select>
         </label>
 

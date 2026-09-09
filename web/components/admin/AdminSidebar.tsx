@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CalendarDays, Users, UsersRound, Wallet, ShoppingBag, Kanban, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, GraduationCap, UsersRound, Wallet, ShoppingBag, Kanban, LogOut } from 'lucide-react';
 import { useLogout } from '@/lib/use-logout';
 
 const NAV = [
   { href: '/app/admin', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/app/admin/calendar', label: 'Календарь', icon: CalendarDays },
+  { href: '/app/admin/teachers', label: 'Учителя', icon: GraduationCap },
   { href: '/app/admin/students', label: 'Ученики', icon: Users },
   { href: '/app/admin/groups', label: 'Группы', icon: UsersRound },
   { href: '/app/admin/payments', label: 'Оплаты', icon: Wallet },

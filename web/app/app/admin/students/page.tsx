@@ -7,12 +7,20 @@ import { Plus, Coins, Search, KeyRound } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { AdminStudentRow } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CreateStudentSheet } from '@/components/admin/CreateStudentSheet';
 import { CoinsAdjustSheet } from '@/components/admin/CoinsAdjustSheet';
 import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinSheet';
+import { formatDate, formatKzt } from '@/lib/format';
 import { Users } from 'lucide-react';
+
+const STATUS_LABEL: Record<string, string> = {
+  active: 'Учится',
+  paused: 'Приостановлено',
+  left: 'Ушёл',
+};
 
 function StudentsContent() {
   const initialSearch = useSearchParams().get('search') ?? '';
@@ -58,58 +66,73 @@ function StudentsContent() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-purple-mid text-lavender">
-                <th className="px-4 py-3 font-medium">Имя</th>
-                <th className="px-4 py-3 font-medium">Логин</th>
+                <th className="px-4 py-3 font-medium">Ученик</th>
+                <th className="px-4 py-3 font-medium">Филиал</th>
+                <th className="px-4 py-3 font-medium">Телефон</th>
                 <th className="px-4 py-3 font-medium">Группа</th>
-                <th className="px-4 py-3 font-medium">Коины</th>
-                <th className="px-4 py-3 font-medium">Осталось уроков</th>
-                <th className="px-4 py-3 font-medium">Родители</th>
+                <th className="px-4 py-3 font-medium">Присоединился</th>
+                <th className="px-4 py-3 font-medium">Учится</th>
+                <th className="px-4 py-3 font-medium">Оплата в месяц</th>
+                <th className="px-4 py-3 font-medium">Всего оплачено</th>
+                <th className="px-4 py-3 font-medium">Посл. оплата</th>
+                <th className="px-4 py-3 font-medium">След. оплата</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {data.map((s) => (
-                <tr key={s.id} className="border-b border-purple-mid/40 last:border-0">
-                  <td className="px-4 py-3 text-white">{s.full_name}</td>
-                  <td className="px-4 py-3 text-lavender">{s.login}</td>
-                  <td className="px-4 py-3 text-lavender">{s.group_name ?? '—'}</td>
-                  <td className="px-4 py-3 text-white">{s.coins_balance}</td>
-                  <td className="px-4 py-3 text-lavender">{s.lessons_left ?? '—'}</td>
-                  <td className="px-4 py-3 text-muted">
-                    {s.parents.length === 0 && '—'}
-                    {s.parents.map((p, i) => (
-                      <span key={p.id}>
-                        {i > 0 && ', '}
-                        {p.full_name} ({p.phone})
+              {data.map((s) => {
+                const primaryParent = s.parents[0];
+                return (
+                  <tr key={s.id} className="border-b border-purple-mid/40 last:border-0">
+                    <td className="px-4 py-3">
+                      <p className="text-white">{s.full_name}</p>
+                      <p className="text-xs text-muted">{s.login}</p>
+                    </td>
+                    <td className="px-4 py-3 text-lavender">{s.branch_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-lavender">
+                      {s.phone ?? '—'}
+                      {primaryParent && (
                         <button
-                          onClick={() => setPinFor({ id: p.id, name: p.full_name, phone: p.phone })}
+                          onClick={() => setPinFor({ id: primaryParent.id, name: primaryParent.full_name, phone: primaryParent.phone })}
                           className="ml-1 text-lavender hover:text-white"
-                          aria-label={`Сбросить PIN у ${p.full_name}`}
+                          aria-label={`Сбросить PIN у ${primaryParent.full_name}`}
                           title="Сбросить PIN родителя"
                         >
                           <KeyRound className="inline size-3.5" aria-hidden />
                         </button>
-                      </span>
-                    ))}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1.5">
-                      <button
-                        onClick={() => setPinFor({ id: s.id, name: s.full_name, phone: s.parents[0]?.phone, login: s.login })}
-                        className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
-                      >
-                        <KeyRound className="size-3.5" aria-hidden /> PIN
-                      </button>
-                      <button
-                        onClick={() => setAdjustFor({ id: s.id, name: s.full_name })}
-                        className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
-                      >
-                        <Coins className="size-3.5" aria-hidden /> Коины
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-lavender">{s.group_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-lavender">{s.joined_at ? formatDate(s.joined_at) : '—'}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        tone={s.status === 'active' ? 'positive' : s.status === 'paused' ? 'neutral' : 'negative'}
+                        label={STATUS_LABEL[s.status] ?? s.status}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-white">{s.last_payment_amount ? formatKzt(s.last_payment_amount) : '—'}</td>
+                    <td className="px-4 py-3 text-white">{s.total_paid ? formatKzt(s.total_paid) : '—'}</td>
+                    <td className="px-4 py-3 text-lavender">{s.last_payment_at ? formatDate(s.last_payment_at) : '—'}</td>
+                    <td className="px-4 py-3 text-lavender">{s.next_payment_estimate ? formatDate(s.next_payment_estimate) : '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => setPinFor({ id: s.id, name: s.full_name, phone: primaryParent?.phone, login: s.login })}
+                          className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                        >
+                          <KeyRound className="size-3.5" aria-hidden /> PIN
+                        </button>
+                        <button
+                          onClick={() => setAdjustFor({ id: s.id, name: s.full_name })}
+                          className="flex items-center gap-1 rounded-lg border border-purple-mid px-2.5 py-1.5 text-xs text-lavender hover:text-white"
+                        >
+                          <Coins className="size-3.5" aria-hidden /> Коины
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

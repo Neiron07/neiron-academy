@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import type { CreateStudentResponse, TeacherGroup } from '@/lib/types';
+import type { Branch, CreateStudentResponse, TeacherGroup } from '@/lib/types';
 import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -17,23 +17,34 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [groupId, setGroupId] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<CreateStudentResponse | null>(null);
 
+  const { data: branches } = useQuery({
+    queryKey: ['admin-branches'],
+    queryFn: () => api.get<Branch[]>('/admin/branches'),
+    enabled: open,
+  });
   const { data: groups } = useQuery({
     queryKey: ['admin-groups-list'],
     queryFn: () => api.get<TeacherGroup[]>('/teacher/groups'),
     enabled: open,
   });
 
+  useEffect(() => {
+    if (open && branches && branches.length > 0 && !branchId) setBranchId(branches[0]!.id);
+  }, [open, branches, branchId]);
+
   const create = useMutation({
     mutationFn: () =>
       api.post<CreateStudentResponse>('/admin/students', {
         full_name: fullName.trim(),
         birth_date: birthDate || undefined,
+        branch_id: branchId || undefined,
         group_id: groupId || undefined,
         parent:
           parentName.trim() && parentPhone.trim()
@@ -55,6 +66,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
   function reset() {
     setFullName('');
     setBirthDate('');
+    setBranchId('');
     setGroupId('');
     setParentName('');
     setParentPhone('');
@@ -116,6 +128,20 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
       <div className="space-y-3">
         <Input label="Имя ученика" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus />
         <Input label="Дата рождения" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-lavender">Филиал</span>
+          <select
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+            className="h-12 w-full rounded-xl border border-purple-mid bg-transparent px-4 text-white outline-none focus:border-purple"
+          >
+            {branches?.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="block">
           <span className="mb-1.5 block text-sm text-lavender">Группа (необязательно)</span>
           <select
