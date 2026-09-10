@@ -185,6 +185,7 @@ export interface TeacherTodayResponse {
   today: TeacherTodayLesson[];
   overdue: TeacherOverdueLesson[];
   upcoming: TeacherUpcomingLesson[];
+  events: CalendarEvent[];
 }
 
 export interface RosterStudent {
@@ -270,6 +271,41 @@ export interface TeacherScheduleItem {
   group_name: string;
   room: string | null;
   course_name: string;
+}
+
+export interface TeacherScheduleResponse {
+  lessons: TeacherScheduleItem[];
+  events: CalendarEvent[];
+}
+
+export interface HomeworkListItem {
+  id: string;
+  group_id: string;
+  group_name: string;
+  title: string;
+  deadline_at: string | null;
+  created_at: string;
+  submitted_count: number;
+  pending_review_count: number;
+  total_students: number;
+}
+
+export interface Material {
+  id: string;
+  group_id: string;
+  lesson_id: string | null;
+  title: string;
+  description: string | null;
+  url: string | null;
+  created_at: string;
+}
+
+export interface LessonFeedbackItem {
+  id: string;
+  student_id: string | null;
+  kind: FeedbackKind;
+  text: string;
+  can_be_public: boolean;
 }
 
 // -------------------------------------------------------------- домашки (общее)

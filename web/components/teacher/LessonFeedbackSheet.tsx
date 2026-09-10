@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import type { LessonFeedbackItem } from '@/lib/types';
 
 interface RosterOption {
   student_id: string;
@@ -21,6 +22,7 @@ export function LessonFeedbackSheet({
   onClose,
   roster,
   loading,
+  existing,
   onSubmit,
   onSkip,
 }: {
@@ -28,6 +30,7 @@ export function LessonFeedbackSheet({
   onClose: () => void;
   roster: RosterOption[];
   loading: boolean;
+  existing?: LessonFeedbackItem[];
   onSubmit: (items: FeedbackDraftItem[]) => void;
   onSkip: () => void;
 }) {
@@ -37,6 +40,20 @@ export function LessonFeedbackSheet({
   const [attentionText, setAttentionText] = useState('');
   const [groupText, setGroupText] = useState('');
   const [canBePublic, setCanBePublic] = useState(false);
+  const isEdit = !!existing && existing.length > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const highlight = existing?.find((f) => f.kind === 'highlight');
+    const attention = existing?.find((f) => f.kind === 'attention');
+    const groupNote = existing?.find((f) => f.kind === 'group_note');
+    setHighlightId(highlight?.student_id ?? '');
+    setHighlightText(highlight?.text ?? '');
+    setAttentionId(attention?.student_id ?? '');
+    setAttentionText(attention?.text ?? '');
+    setGroupText(groupNote?.text ?? '');
+    setCanBePublic(existing?.some((f) => f.can_be_public) ?? false);
+  }, [open, existing]);
 
   function submit() {
     const items: FeedbackDraftItem[] = [];
@@ -54,7 +71,7 @@ export function LessonFeedbackSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Обратная связь по уроку">
+    <Sheet open={open} onClose={onClose} title={isEdit ? 'Изменить обратную связь' : 'Обратная связь по уроку'}>
       <div className="space-y-4">
         <div>
           <p className="mb-1.5 text-sm text-lavender">Кто отличился</p>
@@ -123,7 +140,7 @@ export function LessonFeedbackSheet({
 
         <div className="flex gap-2 pt-1">
           <Button variant="ghost" onClick={onSkip} disabled={loading}>
-            Пропустить
+            {isEdit ? 'Закрыть' : 'Пропустить'}
           </Button>
           <Button fullWidth loading={loading} onClick={submit}>
             Сохранить

@@ -15,6 +15,7 @@ import lessonRoutes from './routes/lessons.js';
 import studentRoutes from './routes/student.js';
 import shopRoutes from './routes/shop.js';
 import homeworkRoutes from './routes/homework.js';
+import materialsRoutes from './routes/materials.js';
 import parentRoutes from './routes/parent.js';
 import adminRoutes from './routes/admin.js';
 
@@ -109,6 +110,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(studentRoutes,  { prefix: '/api/me' });
   await app.register(shopRoutes,     { prefix: '/api/shop' });
   await app.register(homeworkRoutes, { prefix: '/api/homework' });
+  await app.register(materialsRoutes, { prefix: '/api/materials' });
   await app.register(parentRoutes,   { prefix: '/api/parent' });
   await app.register(adminRoutes,    { prefix: '/api/admin' });
 

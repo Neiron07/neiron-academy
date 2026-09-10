@@ -49,7 +49,16 @@ export default async function teacherRoutes(app: FastifyInstance) {
             order by l.scheduled_at limit 10`, [isAdmin, req.user!.id])
       : [];
 
-    return { today, overdue, upcoming };
+    // Пробные уроки и события — админ мог назначить их именно на этого преподавателя.
+    const events = await query(
+      `select id, kind, title, starts_at, duration_min, room, contact_name, contact_phone
+         from calendar_events
+        where starts_at::date = (now() at time zone 'Asia/Almaty')::date
+          and ($1 or teacher_id = $2)
+        order by starts_at`,
+      [isAdmin, req.user!.id]);
+
+    return { today, overdue, upcoming, events };
   });
 
   /** Расписание преподавателя на период. */
@@ -61,14 +70,25 @@ export default async function teacherRoutes(app: FastifyInstance) {
 
     const from = q.from ?? new Date().toISOString().slice(0, 10);
     const to = q.to ?? new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    const isAdmin = req.user!.role === 'admin';
 
-    return query(
+    const lessons = await query(
       `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, c.name as course_name
          from lessons l join groups g on g.id = l.group_id join courses c on c.id = g.course_id
         where l.scheduled_at::date between $1 and $2
           and ($3 or g.teacher_id = $4)
         order by l.scheduled_at`,
-      [from, to, req.user!.role === 'admin', req.user!.id]);
+      [from, to, isAdmin, req.user!.id]);
+
+    const events = await query(
+      `select id, kind, title, starts_at, duration_min, room, contact_name, contact_phone
+         from calendar_events
+        where starts_at::date between $1 and $2
+          and ($3 or teacher_id = $4)
+        order by starts_at`,
+      [from, to, isAdmin, req.user!.id]);
+
+    return { lessons, events };
   });
 
   /** Мои группы. Админ с ?status=all видит и архивные (для управления). */

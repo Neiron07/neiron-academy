@@ -3,9 +3,9 @@
 import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Coins, Check } from 'lucide-react';
+import { Coins, Check, MessageSquareHeart } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import type { AttendanceStatus, LessonDetail } from '@/lib/types';
+import type { AttendanceStatus, LessonDetail, LessonFeedbackItem } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -30,11 +30,17 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     queryFn: () => api.get<LessonDetail>(`/lessons/${id}`),
   });
 
+  const { data: existingFeedback } = useQuery({
+    queryKey: ['lesson-feedback', id],
+    queryFn: () => api.get<LessonFeedbackItem[]>(`/lessons/${id}/feedback`),
+  });
+
   const [marks, setMarks] = useState<Record<string, AttendanceStatus | null>>({});
   const [topicId, setTopicId] = useState('');
   const [manualFor, setManualFor] = useState<string | null>(null);
   const [manualUsed, setManualUsed] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackAutoFlow, setFeedbackAutoFlow] = useState(false);
   const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
@@ -75,10 +81,16 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     mutationFn: (items: FeedbackDraftItem[]) => api.post(`/lessons/${id}/feedback`, { items }),
     onSuccess: () => {
       toast('Обратная связь сохранена', 'success');
-      router.push('/app/teacher');
+      qc.invalidateQueries({ queryKey: ['lesson-feedback', id] });
+      closeFeedback();
     },
     onError: (e) => toast(hintFor(e), 'error'),
   });
+
+  function closeFeedback() {
+    setShowFeedback(false);
+    if (feedbackAutoFlow) router.push('/app/teacher');
+  }
 
   const allMarked = data ? data.roster.every((s) => marks[s.student_id]) : false;
 
@@ -90,7 +102,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       await api.post(`/lessons/${id}/attendance`, { items });
       await api.post(`/lessons/${id}/complete`, topicId ? { topic_id: topicId } : {});
       sessionStorage.removeItem(draftKey);
+      qc.invalidateQueries({ queryKey: ['lesson', id] });
       toast('Урок завершён', 'success');
+      setFeedbackAutoFlow(true);
       setShowFeedback(true);
     } catch (e) {
       toast(hintFor(e), 'error');
@@ -117,6 +131,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   }
 
   const remaining = data.manual.limit - manualUsed;
+  const hasFeedback = (existingFeedback?.length ?? 0) > 0;
 
   return (
     <>
@@ -124,14 +139,31 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       <p className="-mt-3 mb-4 text-sm text-lavender">{formatRelativeDateTime(data.lesson.scheduled_at)}</p>
 
       {data.lesson.status === 'completed' && (
-        <Card className="mb-4 text-sm text-lavender">Урок уже проведён. Можно изменить отметки при необходимости.</Card>
+        <Card className="mb-4 flex items-center justify-between gap-2 text-sm text-lavender">
+          <span>Урок уже проведён. Можно изменить отметки при необходимости.</span>
+        </Card>
+      )}
+
+      {data.lesson.status === 'completed' && (
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mb-4"
+          onClick={() => {
+            setFeedbackAutoFlow(false);
+            setShowFeedback(true);
+          }}
+        >
+          <MessageSquareHeart className="size-4" aria-hidden />
+          {hasFeedback ? 'Изменить обратную связь' : 'Оставить обратную связь'}
+        </Button>
       )}
 
       <div className="mb-3 flex items-center justify-between rounded-xl border border-purple-mid px-4 py-2.5 text-sm">
         <span className="flex items-center gap-1.5 text-lavender">
           <Coins className="size-4" aria-hidden /> Ручные коины
         </span>
-        <span className={remaining <= 0 ? 'text-white' : 'text-white'}>
+        <span className={remaining <= 0 ? 'text-muted' : 'text-white'}>
           Осталось {Math.max(0, remaining)} из {data.manual.limit}
         </span>
       </div>
@@ -188,10 +220,20 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         </div>
       )}
 
-      <div className="sticky bottom-24 mt-5">
-        {!allMarked && <p className="mb-2 text-center text-sm text-muted">Отметьте всех, чтобы завершить урок</p>}
-        <Button fullWidth size="lg" disabled={!allMarked} loading={completing} onClick={complete}>
-          <Check className="size-5" aria-hidden /> Завершить урок
+      <div className={data.lesson.status === 'completed' ? 'mt-5' : 'sticky bottom-24 mt-5'}>
+        {!allMarked && data.lesson.status !== 'completed' && (
+          <p className="mb-2 text-center text-sm text-muted">Отметьте всех, чтобы завершить урок</p>
+        )}
+        <Button
+          fullWidth
+          size={data.lesson.status === 'completed' ? 'md' : 'lg'}
+          variant={data.lesson.status === 'completed' ? 'secondary' : 'primary'}
+          disabled={!allMarked}
+          loading={completing}
+          onClick={complete}
+        >
+          <Check className="size-5" aria-hidden />
+          {data.lesson.status === 'completed' ? 'Сохранить изменения посещаемости' : 'Завершить урок'}
         </Button>
       </div>
 
@@ -209,11 +251,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 
       <LessonFeedbackSheet
         open={showFeedback}
-        onClose={() => router.push('/app/teacher')}
+        onClose={closeFeedback}
         roster={data.roster}
+        existing={existingFeedback}
         loading={feedbackMutation.isPending}
         onSubmit={(items) => feedbackMutation.mutate(items)}
-        onSkip={() => router.push('/app/teacher')}
+        onSkip={closeFeedback}
       />
     </>
   );

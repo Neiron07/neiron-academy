@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, BookOpen, ExternalLink } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import type { StudentHomework } from '@/lib/types';
+import type { Material, StudentHomework } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +27,10 @@ export default function StudentHomeworkPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['student-homework'],
     queryFn: () => api.get<StudentHomework[]>('/homework/my'),
+  });
+  const { data: materials } = useQuery({
+    queryKey: ['student-materials'],
+    queryFn: () => api.get<Material[]>('/materials/my'),
   });
 
   const [openId, setOpenId] = useState<string | null>(null);
@@ -52,6 +56,28 @@ export default function StudentHomeworkPage() {
   return (
     <>
       <TopBar title="Домашки" />
+
+      {materials && materials.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-lavender">
+            <BookOpen className="size-4" aria-hidden /> Материалы от преподавателя
+          </p>
+          <div className="space-y-2">
+            {materials.map((m) => (
+              <Card key={m.id}>
+                <p className="font-medium text-white">{m.title}</p>
+                {m.description && <p className="text-sm text-lavender">{m.description}</p>}
+                {m.url && (
+                  <a href={m.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm text-lavender hover:text-white hover:underline">
+                    Открыть <ExternalLink className="size-3.5" aria-hidden />
+                  </a>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {isLoading && <SkeletonCard />}
       {data?.length === 0 && <EmptyState icon={ClipboardList} title="Заданий пока нет" hint="Появятся после следующего урока" />}
 

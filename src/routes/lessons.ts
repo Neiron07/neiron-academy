@@ -186,6 +186,14 @@ export default async function lessonRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  /** Уже сохранённый фидбек по уроку — чтобы форма открывалась не пустой, а с тем, что уже ввели. */
+  app.get('/:id/feedback', { preHandler: staff }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    await assertLessonAccess(id, req.user!);
+    return query(
+      `select id, student_id, kind, text, can_be_public from lesson_feedback where lesson_id = $1`, [id]);
+  });
+
   // ----------------------------------------------- фидбек после урока
   app.post('/:id/feedback', { preHandler: staff }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
@@ -206,12 +214,26 @@ export default async function lessonRoutes(app: FastifyInstance) {
         `Обратную связь можно оставить в течение ${LESSON_EDIT_WINDOW_HOURS} часов после урока`);
     }
 
+    // Повторная отправка ЗАМЕНЯЕТ прошлую запись того же вида, а не добавляет дубль.
     await tx(async (c) => {
       for (const f of body.items) {
-        await c.query(
-          `insert into lesson_feedback (lesson_id, student_id, kind, text, can_be_public, created_by)
-           values ($1,$2,$3,$4,$5,$6)`,
-          [id, f.student_id, f.kind, f.text, f.can_be_public, req.user!.id]);
+        if (f.student_id) {
+          await c.query(
+            `insert into lesson_feedback (lesson_id, student_id, kind, text, can_be_public, created_by)
+             values ($1,$2,$3,$4,$5,$6)
+             on conflict (lesson_id, student_id, kind) where student_id is not null
+             do update set text = excluded.text, can_be_public = excluded.can_be_public,
+                            created_by = excluded.created_by, created_at = now()`,
+            [id, f.student_id, f.kind, f.text, f.can_be_public, req.user!.id]);
+        } else {
+          await c.query(
+            `insert into lesson_feedback (lesson_id, student_id, kind, text, can_be_public, created_by)
+             values ($1,null,$2,$3,$4,$5)
+             on conflict (lesson_id) where kind = 'group_note'
+             do update set text = excluded.text, can_be_public = excluded.can_be_public,
+                            created_by = excluded.created_by, created_at = now()`,
+            [id, f.kind, f.text, f.can_be_public, req.user!.id]);
+        }
       }
     });
 

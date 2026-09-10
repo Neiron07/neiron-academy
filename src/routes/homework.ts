@@ -34,6 +34,34 @@ export default async function homeworkRoutes(app: FastifyInstance) {
        body.link ?? null, JSON.stringify(body.attachments), body.deadline_at ?? null, req.user!.id]);
   });
 
+  /**
+   * Список заданий группы (или всех своих групп) — чтобы можно было вернуться
+   * и проверить домашку позже, а не только сразу после её создания.
+   */
+  app.get('/', { preHandler: staff }, async (req) => {
+    const q = z.object({ group_id: z.string().uuid().optional() }).parse(req.query);
+    const isAdmin = req.user!.role === 'admin';
+
+    if (q.group_id && req.user!.role === 'teacher') {
+      const own = await one(`select 1 from groups where id=$1 and teacher_id=$2`, [q.group_id, req.user!.id]);
+      if (!own) throw new AppError(403, 'FORBIDDEN', 'Это не ваша группа');
+    }
+
+    return query(
+      `select h.id, h.group_id, h.title, h.deadline_at, h.created_at, g.name as group_name,
+              count(sub.id)::int as submitted_count,
+              count(*) filter (where sub.status = 'submitted')::int as pending_review_count,
+              (select count(*) from enrollments e where e.group_id = h.group_id and e.status='active')::int as total_students
+         from homeworks h
+         join groups g on g.id = h.group_id
+    left join submissions sub on sub.homework_id = h.id
+        where ($1::uuid is null or h.group_id = $1)
+          and ($2 or g.teacher_id = $3)
+        group by h.id, g.name
+        order by h.created_at desc`,
+      [q.group_id ?? null, isAdmin, req.user!.id]);
+  });
+
   // ------------------------------------ препод: список сдач по заданию
   app.get('/:id/submissions', { preHandler: staff }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
