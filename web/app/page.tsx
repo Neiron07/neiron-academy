@@ -4,16 +4,18 @@ import { Hero } from '@/components/landing/Hero';
 import { StatsSection } from '@/components/landing/Stats';
 import { CoursesSection } from '@/components/landing/Courses';
 import { WhyUsSection } from '@/components/landing/WhyUs';
+import { WhatsIncludedSection } from '@/components/landing/WhatsIncluded';
 import { HowItWorksSection } from '@/components/landing/HowItWorks';
 import { StudentWorksSection } from '@/components/landing/StudentWorks';
 import { TeachersSection } from '@/components/landing/Teachers';
 import { TestimonialsSection } from '@/components/landing/Testimonials';
-import { PricingSection } from '@/components/landing/Pricing';
 import { LocationSection } from '@/components/landing/LocationSection';
 import { LeadFormSection } from '@/components/landing/LeadForm';
+import { FAQSection } from '@/components/landing/FAQ';
 import { Footer } from '@/components/landing/Footer';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { Reveal } from '@/components/ui/Reveal';
+import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import { SITE } from '@/lib/site-content';
 import { META_PIXEL_ID } from '@/lib/analytics';
 
@@ -21,13 +23,13 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
   name: 'Neiron Academy',
-  description: 'IT-школа для детей 7–15 лет: Scratch, Roblox Studio, Python, нейросети.',
+  description: 'IT-школа для детей 7–16 лет: Scratch, Roblox Studio, Python, разработка сайтов, нейросети.',
   address: { '@type': 'PostalAddress', addressLocality: SITE.city, addressRegion: SITE.district },
 };
 
 export default function LandingPage() {
   return (
-    <>
+    <LanguageProvider>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {META_PIXEL_ID && (
         <Script id="meta-pixel" strategy="afterInteractive">
@@ -47,6 +49,9 @@ export default function LandingPage() {
         <WhyUsSection />
       </Reveal>
       <Reveal>
+        <WhatsIncludedSection />
+      </Reveal>
+      <Reveal>
         <HowItWorksSection />
       </Reveal>
       <Reveal>
@@ -59,16 +64,16 @@ export default function LandingPage() {
         <TestimonialsSection />
       </Reveal>
       <Reveal>
-        <PricingSection />
-      </Reveal>
-      <Reveal>
         <LocationSection />
       </Reveal>
       <Reveal>
         <LeadFormSection />
       </Reveal>
+      <Reveal>
+        <FAQSection />
+      </Reveal>
       <Footer />
       <WhatsAppFab />
-    </>
+    </LanguageProvider>
   );
 }

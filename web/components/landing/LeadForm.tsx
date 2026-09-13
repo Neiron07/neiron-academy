@@ -9,8 +9,10 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { trackLead } from '@/lib/analytics';
+import { useLang } from '@/lib/i18n/LanguageContext';
+import type { Dictionary } from '@/lib/i18n/dictionaries';
 
-function LeadFormInner() {
+function LeadFormInner({ t }: { t: Dictionary }) {
   const params = useSearchParams();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -22,8 +24,8 @@ function LeadFormInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (name.trim().length < 2) return setError('Введите имя');
-    if (phone.replace(/\D/g, '').length < 10) return setError('Введите номер телефона');
+    if (name.trim().length < 2) return setError(t.leadForm.errorName);
+    if (phone.replace(/\D/g, '').length < 10) return setError(t.leadForm.errorPhone);
 
     setLoading(true);
     try {
@@ -43,7 +45,7 @@ function LeadFormInner() {
       trackLead();
       setDone(res.message);
     } catch {
-      setError('Не удалось отправить. Попробуйте ещё раз или напишите в WhatsApp.');
+      setError(t.leadForm.errorGeneric);
     } finally {
       setLoading(false);
     }
@@ -51,9 +53,9 @@ function LeadFormInner() {
 
   if (done) {
     return (
-      <Card className="mx-auto max-w-md p-6 text-center">
+      <Card className="mx-auto max-w-md p-6 text-center animate-[fade-in-up_0.5s_ease-out]">
         <CheckCircle2 className="mx-auto mb-3 size-10 text-white" aria-hidden />
-        <p className="font-display text-lg font-semibold text-white">Заявка принята</p>
+        <p className="font-display text-lg font-semibold text-white">{t.leadForm.successTitle}</p>
         <p className="mt-2 text-lavender">{done}</p>
       </Card>
     );
@@ -61,24 +63,25 @@ function LeadFormInner() {
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-md space-y-4">
-      <Input label="Имя" value={name} onChange={(e) => setName(e.target.value)} />
+      <Input label={t.leadForm.nameLabel} value={name} onChange={(e) => setName(e.target.value)} />
       <PhoneInput value={phone} onChange={setPhone} />
-      <Input label="Возраст ребёнка" type="number" min={4} max={18} value={childAge} onChange={(e) => setChildAge(e.target.value)} />
+      <Input label={t.leadForm.ageLabel} type="number" min={4} max={18} value={childAge} onChange={(e) => setChildAge(e.target.value)} />
       {error && <p className="text-sm text-white">{error}</p>}
-      <Button type="submit" fullWidth size="lg" loading={loading}>
-        Записаться на пробный урок
+      <Button type="submit" fullWidth size="lg" loading={loading} className="transition-transform hover:scale-[1.02] active:scale-[0.98]">
+        {t.leadForm.submit}
       </Button>
     </form>
   );
 }
 
 export function LeadFormSection() {
+  const { t } = useLang();
   return (
     <section id="заявка" className="mx-auto max-w-5xl px-5 py-16">
-      <h2 className="mb-3 text-center font-display text-3xl font-semibold text-white">Записаться на пробный урок</h2>
-      <p className="mb-8 text-center text-lavender">Свяжемся в течение рабочего дня. Обычно быстрее.</p>
+      <h2 className="mb-3 text-center font-display text-3xl font-semibold text-white">{t.leadForm.title}</h2>
+      <p className="mb-8 text-center text-lavender">{t.leadForm.subtitle}</p>
       <Suspense>
-        <LeadFormInner />
+        <LeadFormInner t={t} />
       </Suspense>
     </section>
   );
