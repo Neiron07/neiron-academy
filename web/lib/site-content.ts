@@ -22,28 +22,12 @@ export const COURSE_PHOTOS: Record<string, string> = {
   ai: 'https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&w=600&q=80',
 };
 
-// Фото — стоковые (Unsplash), временно, до реальных фото преподавателей.
+// Реальные преподаватели — роль/опыт переведены в lib/i18n/dictionaries.ts (teachers.items[id]),
+// здесь только имя и id для сопоставления. Фото нет — аватар рисуется первой буквой имени.
 export const TEACHERS = [
-  {
-    name: 'Данияр Ахметов',
-    role: 'Python, Нейросети',
-    years: '5 лет в разработке',
-    photo: 'https://images.unsplash.com/photo-1566753323558-f4e0952af115?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    name: 'Аружан Бекова',
-    role: 'Scratch, Roblox Studio',
-    years: '3 года преподавания детям',
-    photo: 'https://images.unsplash.com/photo-1573496527892-904f897eb744?auto=format&fit=crop&w=400&q=80',
-  },
-];
-
-// Фото — стоковые (Unsplash), иллюстративные, временно вместо реальных скриншотов проектов.
-export const STUDENT_WORKS_PHOTOS = [
-  'https://images.unsplash.com/photo-1610484826917-0f101a7bf7f4?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1638452033979-14fba9e17fbb?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1653566031471-85365f8d0ae0?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1540058404349-2e5fabf32d75?auto=format&fit=crop&w=600&q=80',
+  { id: 'almaz', honorific: 'Mr', name: 'Алмаз' },
+  { id: 'aidana', honorific: 'Ms', name: 'Айдана' },
+  { id: 'azamat', honorific: 'Mr', name: 'Азамат' },
 ];
 
 /**

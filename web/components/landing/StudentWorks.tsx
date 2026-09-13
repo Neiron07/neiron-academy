@@ -1,10 +1,11 @@
 'use client';
 
-import Image from 'next/image';
-import { STUDENT_WORKS_PHOTOS } from '@/lib/site-content';
+import { ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { waLink } from '@/lib/constants';
 import { useLang } from '@/lib/i18n/LanguageContext';
 
-/** Фото — стоковые, замените на реальные скриншоты проектов учеников. Самая конверсионная секция. */
+/** Иллюстративные примеры работ — без фото, с описанием и переходом в WhatsApp за подробностями. */
 export function StudentWorksSection() {
   const { t } = useLang();
   return (
@@ -14,20 +15,17 @@ export function StudentWorksSection() {
         {t.studentWorks.items.map((w, i) => (
           <div
             key={w.title}
-            className="group overflow-hidden rounded-2xl border border-purple-mid bg-purple-deep p-3 transition-transform duration-300 hover:-translate-y-1 animate-[fade-in-up_0.6s_ease-out_backwards]"
+            className="flex flex-col rounded-2xl border border-purple-mid bg-purple-deep p-4 transition-transform duration-300 hover:-translate-y-1 hover:border-purple animate-[fade-in-up_0.6s_ease-out_backwards]"
             style={{ animationDelay: `${i * 80}ms` }}
           >
-            <div className="mb-3 aspect-video overflow-hidden rounded-xl bg-purple-mid/25">
-              <Image
-                src={STUDENT_WORKS_PHOTOS[i % STUDENT_WORKS_PHOTOS.length]!}
-                alt={w.title}
-                width={400}
-                height={225}
-                className="size-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105 group-hover:opacity-100"
-              />
-            </div>
-            <p className="text-sm font-medium text-white">{w.title}</p>
+            <p className="font-medium text-white">{w.title}</p>
             <p className="text-sm text-muted">{w.author}</p>
+            <p className="mt-2 flex-1 text-sm text-lavender">{w.description}</p>
+            <a href={waLink(t.whatsapp.studentWorksMessage)} target="_blank" rel="noreferrer" className="mt-4">
+              <Button variant="secondary" size="sm" fullWidth>
+                {t.studentWorks.cta} <ExternalLink className="size-3.5" aria-hidden />
+              </Button>
+            </a>
           </div>
         ))}
       </div>

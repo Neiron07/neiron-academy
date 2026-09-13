@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Glow } from '@/components/ui/Glow';
 import { Button } from '@/components/ui/Button';
+import { Typewriter } from '@/components/ui/Typewriter';
 import { useLang } from '@/lib/i18n/LanguageContext';
 
 /**
@@ -33,7 +34,9 @@ export function Hero() {
       )}
       <Glow className="left-1/2 top-1/3 size-[420px] -translate-x-1/2 -translate-y-1/2" />
       <div className="relative z-10 max-w-lg animate-[fade-in-up_0.7s_ease-out]">
-        <h1 className="font-display text-4xl font-bold leading-tight text-white sm:text-5xl">{t.hero.headline}</h1>
+        <h1 className="font-display text-4xl font-bold leading-tight text-white sm:text-5xl" aria-label={t.hero.headline}>
+          <Typewriter text={t.hero.headline} />
+        </h1>
         <p className="mt-4 text-lg text-lavender">{t.hero.subtitle}</p>
         <div className="mt-7 flex flex-col items-center gap-3">
           <Link href="#заявка">

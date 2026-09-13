@@ -78,16 +78,38 @@ const ru = {
   },
   studentWorks: {
     title: 'Работы учеников',
+    cta: 'Посмотреть проект',
     items: [
-      { title: 'Платформер в Scratch', author: 'Амир, 9 лет' },
-      { title: 'Симулятор кафе в Roblox Studio', author: 'Дана, 11 лет' },
-      { title: 'Чат-бот на Python', author: 'Тимур, 13 лет' },
-      { title: 'Генератор картинок с нейросетью', author: 'Алия, 14 лет' },
+      {
+        title: 'Платформер в Scratch',
+        author: 'Амир, 9 лет',
+        description: 'За несколько занятий собрал платформер с прыжками, врагами и счётом очков — от первого блока до playable-игры.',
+      },
+      {
+        title: 'Симулятор кафе в Roblox Studio',
+        author: 'Дана, 11 лет',
+        description: 'Построила 3D-локацию кафе и написала на Lua скрипт приёма заказов — можно позвать друзей и играть вместе.',
+      },
+      {
+        title: 'Чат-бот на Python',
+        author: 'Тимур, 13 лет',
+        description: 'Написал чат-бота на Python, который отвечает на вопросы и умеет считать — первый код, который реально работает.',
+      },
+      {
+        title: 'Генератор картинок с нейросетью',
+        author: 'Алия, 14 лет',
+        description: 'Научилась использовать нейросеть для генерации иллюстраций по текстовому описанию для собственного проекта.',
+      },
     ],
   },
   teachers: {
     title: 'Преподаватели',
     intro: 'Это действующие разработчики — они пишут код в реальных проектах и приносят на урок то, что происходит в IT прямо сейчас, а не только методичку.',
+    items: {
+      almaz: { role: 'Fullstack-разработчик', years: '10 лет опыта в разработке' },
+      aidana: { role: 'Python-разработчик', years: '' },
+      azamat: { role: 'Scratch, Roblox Studio', years: '' },
+    },
   },
   testimonials: {
     title: 'Отзывы родителей',
@@ -131,7 +153,7 @@ const ru = {
       },
       {
         q: 'Нужен ли свой ноутбук?',
-        a: 'Нет, все занятия проходят на наших компьютерах — свой ноутбук брать не нужно.',
+        a: 'Да, ноутбук нужен свой. Мы считаем, что он должен быть у ребёнка в любом случае — дома нужно доделывать домашние задания, и удобнее делать это на той же технике, на которой занимались на уроке.',
       },
       {
         q: 'Сколько детей в группе?',
@@ -178,6 +200,7 @@ const ru = {
   whatsapp: {
     fabMessage: 'Здравствуйте! Хочу узнать про курсы для ребёнка',
     footerMessage: 'Здравствуйте! Хочу узнать про курсы',
+    studentWorksMessage: 'Здравствуйте! Хочу посмотреть примеры проектов учеников',
   },
 };
 
@@ -256,16 +279,38 @@ const kk: typeof ru = {
   },
   studentWorks: {
     title: 'Оқушылардың жұмыстары',
+    cta: 'Жобаны қарау',
     items: [
-      { title: 'Scratch-те платформер', author: 'Әмір, 9 жаста' },
-      { title: 'Roblox Studio-да кафе симуляторы', author: 'Дана, 11 жаста' },
-      { title: 'Python-да чат-бот', author: 'Тимур, 13 жаста' },
-      { title: 'Нейрожелімен сурет генераторы', author: 'Алия, 14 жаста' },
+      {
+        title: 'Scratch-те платформер',
+        author: 'Әмір, 9 жаста',
+        description: 'Бірнеше сабақта секіру, қарсыластар мен ұпай санағышы бар платформер жасады — алғашқы блоктан ойнауға болатын ойынға дейін.',
+      },
+      {
+        title: 'Roblox Studio-да кафе симуляторы',
+        author: 'Дана, 11 жаста',
+        description: 'Кафенің 3D-локациясын құрды және Lua тілінде тапсырыс қабылдау скриптін жазды — достарын шақырып бірге ойнауға болады.',
+      },
+      {
+        title: 'Python-да чат-бот',
+        author: 'Тимур, 13 жаста',
+        description: 'Сұрақтарға жауап беретін және санай алатын Python-да чат-бот жазды — шынымен жұмыс істейтін алғашқы коды.',
+      },
+      {
+        title: 'Нейрожелімен сурет генераторы',
+        author: 'Алия, 14 жаста',
+        description: 'Өз жобасы үшін мәтіндік сипаттама бойынша иллюстрация генерациялауда нейрожеліні пайдалануды үйренді.',
+      },
     ],
   },
   teachers: {
     title: 'Мұғалімдер',
     intro: 'Бұл — тәжірибелі бағдарламашылар: олар нақты жобаларда код жазады және сабаққа тек әдістемені емес, IT-де қазір нақты болып жатқанды алып келеді.',
+    items: {
+      almaz: { role: 'Fullstack-әзірлеуші', years: '10 жылдық тәжірибе' },
+      aidana: { role: 'Python-әзірлеуші', years: '' },
+      azamat: { role: 'Scratch, Roblox Studio', years: '' },
+    },
   },
   testimonials: {
     title: 'Ата-аналардың пікірлері',
@@ -309,7 +354,7 @@ const kk: typeof ru = {
       },
       {
         q: 'Өз ноутбугі керек пе?',
-        a: 'Жоқ, барлық сабақтар біздің компьютерлерде өтеді — өз ноутбукіңізді алып келудің қажеті жоқ.',
+        a: 'Иә, өз ноутбугі керек. Біз ноутбук баланың бәрібір болуы керек деп есептейміз — үйде үй тапсырмасын дәл сол техникада жалғастырған ыңғайлы.',
       },
       {
         q: 'Топта неше бала болады?',
@@ -356,6 +401,7 @@ const kk: typeof ru = {
   whatsapp: {
     fabMessage: 'Сәлеметсіз бе! Балама арналған курстар туралы білгім келеді',
     footerMessage: 'Сәлеметсіз бе! Курстар туралы білгім келеді',
+    studentWorksMessage: 'Сәлеметсіз бе! Оқушылардың жоба мысалдарын қарағым келеді',
   },
 };
 
@@ -434,16 +480,38 @@ const en: typeof ru = {
   },
   studentWorks: {
     title: 'Student work',
+    cta: 'See the project',
     items: [
-      { title: 'A platformer in Scratch', author: 'Amir, 9 years old' },
-      { title: 'A café simulator in Roblox Studio', author: 'Dana, 11 years old' },
-      { title: 'A chatbot in Python', author: 'Timur, 13 years old' },
-      { title: 'An AI image generator', author: 'Aliya, 14 years old' },
+      {
+        title: 'A platformer in Scratch',
+        author: 'Amir, 9 years old',
+        description: 'Built a platformer with jumps, enemies and a score counter over a few lessons — from the first block to a playable game.',
+      },
+      {
+        title: 'A café simulator in Roblox Studio',
+        author: 'Dana, 11 years old',
+        description: 'Built a 3D café location and wrote an order-taking script in Lua — friends can join in and play together.',
+      },
+      {
+        title: 'A chatbot in Python',
+        author: 'Timur, 13 years old',
+        description: 'Wrote a Python chatbot that answers questions and can do basic maths — the first code that actually runs.',
+      },
+      {
+        title: 'An AI image generator',
+        author: 'Aliya, 14 years old',
+        description: 'Learned to use an AI model to generate illustrations from a text prompt for her own project.',
+      },
     ],
   },
   teachers: {
     title: 'Teachers',
     intro: 'These are practicing developers — they write code on real projects and bring what’s happening in IT right now to the lesson, not just a textbook.',
+    items: {
+      almaz: { role: 'Fullstack developer', years: '10 years in development' },
+      aidana: { role: 'Python developer', years: '' },
+      azamat: { role: 'Scratch, Roblox Studio', years: '' },
+    },
   },
   testimonials: {
     title: 'Parent reviews',
@@ -487,7 +555,7 @@ const en: typeof ru = {
       },
       {
         q: 'Does my child need their own laptop?',
-        a: 'No, all lessons run on our computers — there’s no need to bring your own laptop.',
+        a: 'Yes, they’ll need their own laptop. We believe a child should have one anyway — homework needs to be finished at home, and it’s easier to do that on the same machine they use in class.',
       },
       {
         q: 'How many children are in a group?',
@@ -534,6 +602,7 @@ const en: typeof ru = {
   whatsapp: {
     fabMessage: 'Hello! I’d like to learn about courses for my child',
     footerMessage: 'Hello! I’d like to learn about the courses',
+    studentWorksMessage: 'Hello! I’d like to see examples of student projects',
   },
 };
 
