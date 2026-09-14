@@ -30,4 +30,5 @@ export const TOKEN_TTL: Record<string, number> = {
   parent: 30 * 24 * 3600,
   teacher: 7 * 24 * 3600,
   admin: 7 * 24 * 3600,
+  marketer: 7 * 24 * 3600,
 };

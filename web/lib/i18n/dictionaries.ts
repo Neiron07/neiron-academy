@@ -56,6 +56,11 @@ const ru = {
         explanation:
           'Как пользоваться современными нейросетями осознанно и с пользой: ChatGPT и Claude для учёбы, Suno для музыки, генерация видео и аватаров. 11 модулей о том, как AI помогает делать проекты, а не просто «поболтать с ботом».',
       },
+      english: {
+        name: 'Английский язык',
+        explanation:
+          'Разговорный и письменный английский в маленьких группах: от алфавита и первых слов до уверенного общения. Много живой практики и разговора, а не зубрёжки грамматики по учебнику.',
+      },
     },
   },
   whyUs: {
@@ -257,6 +262,11 @@ const kk: typeof ru = {
         explanation:
           'Заманауи нейрожелілерді саналы әрі пайдалы қолдану: оқу үшін ChatGPT пен Claude, музыка үшін Suno, видео мен аватар генерациясы. AI-дың жай «бот-пен сөйлесу» емес, нақты жобалар жасауға қалай көмектесетіні туралы 11 модуль.',
       },
+      english: {
+        name: 'Ағылшын тілі',
+        explanation:
+          'Шағын топтарда ауызша және жазбаша ағылшын тілі: әліппе мен алғашқы сөздерден сенімді сөйлеуге дейін. Оқулық бойынша грамматиканы жаттаудан гөрі көбірек тірі тәжірибе мен сөйлесу.',
+      },
     },
   },
   whyUs: {
@@ -457,6 +467,11 @@ const en: typeof ru = {
         name: 'Neural Networks',
         explanation:
           'How to use modern AI tools thoughtfully and productively: ChatGPT and Claude for schoolwork, Suno for music, video and avatar generation. 11 modules on how AI helps build real projects, not just "chat with a bot".',
+      },
+      english: {
+        name: 'English',
+        explanation:
+          'Spoken and written English in small groups: from the alphabet and first words to confident conversation. Lots of live practice and talking, not just memorizing grammar from a textbook.',
       },
     },
   },

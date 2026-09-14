@@ -22,6 +22,7 @@ export function PaymentFormSheet({ payment, onClose }: { payment: Payment | null
   const [amount, setAmount] = useState('');
   const [lessons, setLessons] = useState('');
   const [method, setMethod] = useState<(typeof METHODS)[number]['id']>('kaspi');
+  const [paidAt, setPaidAt] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
 
@@ -30,6 +31,7 @@ export function PaymentFormSheet({ payment, onClose }: { payment: Payment | null
     setAmount(String(payment.amount_kzt));
     setLessons(String(payment.lessons_count));
     setMethod(payment.method);
+    setPaidAt(payment.paid_at.slice(0, 10));
     setComment(payment.comment ?? '');
     setError('');
   }, [payment]);
@@ -40,6 +42,7 @@ export function PaymentFormSheet({ payment, onClose }: { payment: Payment | null
         amount_kzt: Number(amount),
         lessons_count: Number(lessons),
         method,
+        paid_at: paidAt || undefined,
         comment: comment.trim() || null,
       }),
     onSuccess: () => {
@@ -73,6 +76,7 @@ export function PaymentFormSheet({ payment, onClose }: { payment: Payment | null
             </button>
           ))}
         </div>
+        <Input label="Дата оплаты" type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
         <Input label="Комментарий (необязательно)" value={comment} onChange={(e) => setComment(e.target.value)} />
         {error && <p className="text-sm text-white">{error}</p>}
         <Button fullWidth disabled={!amount || !lessons} loading={save.isPending} onClick={() => save.mutate()}>

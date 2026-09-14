@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'teacher' | 'student' | 'parent';
+export type Role = 'admin' | 'teacher' | 'student' | 'parent' | 'marketer';
 
 export const COOKIE_TOKEN = 'neiron_token';
 export const COOKIE_ROLE = 'neiron_role';
@@ -9,6 +9,7 @@ export const TOKEN_TTL: Record<Role, number> = {
   parent: 30 * 24 * 3600,
   teacher: 7 * 24 * 3600,
   admin: 7 * 24 * 3600,
+  marketer: 7 * 24 * 3600,
 };
 
 export const ROLE_HOME: Record<Role, string> = {
@@ -16,6 +17,7 @@ export const ROLE_HOME: Record<Role, string> = {
   parent: '/app/parent',
   teacher: '/app/teacher',
   admin: '/app/admin',
+  marketer: '/app/marketer',
 };
 
 export interface PublicUser {

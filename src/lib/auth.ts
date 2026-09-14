@@ -5,7 +5,7 @@ import { config, TOKEN_TTL } from '../config.js';
 import { one, query } from '../db.js';
 import { AppError } from './errors.js';
 
-export type Role = 'admin' | 'teacher' | 'student' | 'parent';
+export type Role = 'admin' | 'teacher' | 'student' | 'parent' | 'marketer';
 
 export interface AuthUser {
   id: string;

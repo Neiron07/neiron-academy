@@ -10,6 +10,9 @@ import { config } from '../config.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   const admin = app.auth(['admin']);
+  // Календарь дополнительно открыт маркетологам — это единственный раздел
+  // "Персонала", куда у них есть доступ помимо задач.
+  const staffCalendar = app.auth(['admin', 'marketer']);
 
   // =================================================== ДАШБОРД
   app.get('/dashboard', { preHandler: admin }, async () => {
@@ -383,7 +386,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       `select u.id, u.full_name, u.phone, u.role, u.is_active, u.created_at,
               (select count(*) from groups g where g.teacher_id = u.id and g.status='active') as groups_count
          from users u
-        where u.role in ('teacher','admin')
+        where u.role in ('teacher','admin','marketer')
         order by u.is_active desc, u.full_name`);
   });
 
@@ -393,7 +396,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const teacher = await one(
       `select id, full_name, phone, role, is_active, created_at from users
-        where id = $1 and role in ('teacher','admin')`, [id]);
+        where id = $1 and role in ('teacher','admin','marketer')`, [id]);
     if (!teacher) throw new AppError(404, 'NOT_FOUND', 'Сотрудник не найден');
 
     const groups = await query(
@@ -417,7 +420,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       full_name: z.string().min(2),
       phone: z.string(),
       password: z.string().min(8),
-      role: z.enum(['teacher', 'admin']).default('teacher'),
+      role: z.enum(['teacher', 'admin', 'marketer']).default('teacher'),
     }).parse(req.body);
 
     const created = await one(
@@ -440,13 +443,13 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       full_name: z.string().min(2).optional(),
       phone: z.string().optional(),
-      role: z.enum(['teacher', 'admin']).optional(),
+      role: z.enum(['teacher', 'admin', 'marketer']).optional(),
       is_active: z.boolean().optional(),
       password: z.string().min(8).optional(),
     }).parse(req.body);
 
     const existing = await one<{ id: string }>(
-      `select id from users where id = $1 and role in ('teacher','admin')`, [id]);
+      `select id from users where id = $1 and role in ('teacher','admin','marketer')`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'Сотрудник не найден');
 
     const passwordHash = body.password ? await hash(body.password) : null;
@@ -743,7 +746,7 @@ export default async function adminRoutes(app: FastifyInstance) {
    * Реальные уроки (из lessons, с именем преподавателя) + пробные/события
    * (из calendar_events) одним запросом на период — для сетки календаря.
    */
-  app.get('/calendar', { preHandler: admin }, async (req) => {
+  app.get('/calendar', { preHandler: staffCalendar }, async (req) => {
     const q = z.object({ from: z.string(), to: z.string() }).parse(req.query);
 
     const lessons = await query(
@@ -772,7 +775,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { lessons, events };
   });
 
-  app.post('/calendar/events', { preHandler: admin }, async (req) => {
+  app.post('/calendar/events', { preHandler: staffCalendar }, async (req) => {
     const body = z.object({
       kind: z.enum(['trial', 'event']).default('trial'),
       title: z.string().min(2).max(200),
@@ -800,7 +803,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     return created;
   });
 
-  app.patch('/calendar/events/:id', { preHandler: admin }, async (req) => {
+  app.patch('/calendar/events/:id', { preHandler: staffCalendar }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     const body = z.object({
       kind: z.enum(['trial', 'event']).optional(),
@@ -837,7 +840,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  app.delete('/calendar/events/:id', { preHandler: admin }, async (req) => {
+  app.delete('/calendar/events/:id', { preHandler: staffCalendar }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     const deleted = await one(`delete from calendar_events where id = $1 returning id`, [id]);
     if (!deleted) throw new AppError(404, 'NOT_FOUND', 'Событие не найдено');

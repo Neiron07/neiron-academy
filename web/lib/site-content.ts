@@ -20,6 +20,7 @@ export const COURSE_PHOTOS: Record<string, string> = {
   python: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=600&q=80',
   webdev: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=600&q=80',
   ai: 'https://images.unsplash.com/photo-1591453089816-0fbb971b454c?auto=format&fit=crop&w=600&q=80',
+  english: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=600&q=80',
 };
 
 // Реальные преподаватели — роль/опыт переведены в lib/i18n/dictionaries.ts (teachers.items[id]),

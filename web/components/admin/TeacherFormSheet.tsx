@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useToast } from '@/components/ui/Toast';
 
-const ROLES: { id: 'teacher' | 'admin'; label: string }[] = [
+const ROLES: { id: 'teacher' | 'admin' | 'marketer'; label: string }[] = [
   { id: 'teacher', label: 'Преподаватель' },
   { id: 'admin', label: 'Администратор' },
+  { id: 'marketer', label: 'Маркетолог' },
 ];
 
 export function TeacherFormSheet({
@@ -29,7 +30,7 @@ export function TeacherFormSheet({
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'teacher' | 'admin'>('teacher');
+  const [role, setRole] = useState<'teacher' | 'admin' | 'marketer'>('teacher');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 

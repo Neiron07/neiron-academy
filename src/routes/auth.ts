@@ -24,7 +24,7 @@ export default async function authRoutes(app: FastifyInstance) {
       const phone = normalizePhone(body.phone);
 
       const user = await one<UserRow>(
-        `select * from users where phone = $1 and role in ('admin','teacher')`, [phone]);
+        `select * from users where phone = $1 and role in ('admin','teacher','marketer')`, [phone]);
       if (!user) throw new AppError(401, 'BAD_CREDENTIALS', 'Неверный телефон или пароль');
 
       assertNotLocked(user);
@@ -154,7 +154,7 @@ export default async function authRoutes(app: FastifyInstance) {
     });
 
   // ---------------------------------------------------------- профиль
-  app.get('/me', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent']) },
+  app.get('/me', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent', 'marketer']) },
     async (req) => {
       const u = req.user!;
       const base = { id: u.id, role: u.role, full_name: u.full_name };
@@ -176,7 +176,7 @@ export default async function authRoutes(app: FastifyInstance) {
     });
 
   // ------------------------------------------------------------ выход
-  app.post('/logout', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent']) },
+  app.post('/logout', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent', 'marketer']) },
     async (req) => {
       // token_version++ убивает все активные сессии этого пользователя
       await query(`update users set token_version = token_version + 1 where id = $1`, [req.user!.id]);

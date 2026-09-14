@@ -537,7 +537,7 @@ export interface AdminStaff {
   id: string;
   full_name: string;
   phone: string;
-  role: 'teacher' | 'admin';
+  role: 'teacher' | 'admin' | 'marketer';
   is_active: boolean;
   created_at: string;
   groups_count: number;
@@ -600,4 +600,40 @@ export interface CalendarEvent {
 export interface AdminCalendarResponse {
   lessons: CalendarLesson[];
   events: CalendarEvent[];
+}
+
+// ----------------------------------------------------------------- задачи
+export type TaskStatus = 'new' | 'in_progress' | 'review' | 'done' | 'canceled';
+export type TaskType = 'assigned' | 'pool' | 'personal' | 'recurring' | 'automatic';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  type: TaskType;
+  priority: TaskPriority;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  created_by: string | null;
+  creator_name: string | null;
+  due_at: string | null;
+  template_id: string | null;
+  source_key: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  weekday: number;
+  is_active: boolean;
+  created_at: string;
 }

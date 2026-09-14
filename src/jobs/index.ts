@@ -3,6 +3,7 @@ import { one, query } from '../db.js';
 import { flushNotifications, enqueueNotification } from '../integrations/whatsapp.js';
 import { grantAchievement } from '../lib/achievements.js';
 import { LOW_BALANCE_THRESHOLD } from '../lib/rules.js';
+import { estimateNextPayment } from '../lib/payments.js';
 
 const TZ = 'Asia/Almaty';
 
@@ -92,6 +93,62 @@ export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: 
   // Чистка отработавших OTP — раз в сутки
   jobs.push(new Cron('30 4 * * *', { timezone: TZ }, async () => {
     await query(`delete from otp_codes where created_at < now() - interval '3 days'`);
+  }));
+
+  // Повторяющиеся задачи — раскатка активных шаблонов на сегодняшний день недели.
+  // Пока предыдущий экземпляр шаблона не закрыт (done/canceled), новый не создаётся —
+  // это держит partial unique индекс tasks_source_key_open_uq.
+  jobs.push(new Cron('0 6 * * *', { timezone: TZ }, async () => {
+    const WEEKDAY: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+    const label = new Date().toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short' });
+    const weekday = WEEKDAY[label];
+    if (!weekday) return;
+
+    const templates = await query<{
+      id: string; title: string; description: string | null; priority: string; assignee_id: string | null; created_by: string | null;
+    }>(`select id, title, description, priority, assignee_id, created_by from task_templates
+         where is_active and weekday = $1`, [weekday]);
+
+    let created = 0;
+    for (const t of templates) {
+      const r = await one(
+        `insert into tasks (title, description, type, priority, assignee_id, created_by, template_id, source_key)
+         values ($1,$2,'recurring',$3,$4,$5,$6,$7)
+         on conflict (source_key) where source_key is not null and status not in ('done','canceled') do nothing
+         returning id`,
+        [t.title, t.description, t.priority, t.assignee_id, t.created_by, t.id, `template:${t.id}`]);
+      if (r) created++;
+    }
+    if (created) log.info({ created }, 'jobs: повторяющиеся задачи созданы');
+  }));
+
+  // Автоматические задачи по просроченной оплате — раз в сутки, свои для тех же
+  // студентов не дублируются, пока предыдущая задача не закрыта (done/canceled).
+  jobs.push(new Cron('0 9 * * *', { timezone: TZ }, async () => {
+    const rows = await query<{
+      id: string; full_name: string; last_payment_at: string; lessons_left: number; weekly_lessons: number;
+    }>(`select u.id, u.full_name, pay.last_payment_at, pay.lessons_left, pay.weekly_lessons
+          from users u join v_student_payment_status pay on pay.student_id = u.id
+         where u.role = 'student' and u.is_active and pay.last_payment_at is not null`);
+
+    let created = 0;
+    for (const r of rows) {
+      const estimate = estimateNextPayment(r.last_payment_at, r.lessons_left, r.weekly_lessons);
+      if (!estimate) continue;
+      const days = Math.round((new Date(estimate).getTime() - Date.now()) / 86_400_000);
+      if (days > 0) continue;
+
+      const row = await one(
+        `insert into tasks (title, description, type, priority, source_key)
+         values ($1,$2,'automatic','high',$3)
+         on conflict (source_key) where source_key is not null and status not in ('done','canceled') do nothing
+         returning id`,
+        [`Просрочена оплата: ${r.full_name}`,
+         `Ожидаемая дата оплаты — ${new Date(estimate).toLocaleDateString('ru-RU', { timeZone: TZ })}. Свяжитесь с родителем.`,
+         `payment_overdue:${r.id}`]);
+      if (row) created++;
+    }
+    if (created) log.info({ created }, 'jobs: задачи по просроченным оплатам созданы');
   }));
 
   log.info({ count: jobs.length }, 'jobs: планировщик запущен');
