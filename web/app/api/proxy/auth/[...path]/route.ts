@@ -6,6 +6,26 @@ import { COOKIE_TOKEN, COOKIE_ROLE, TOKEN_TTL, type Role } from '@/lib/session';
  * Единственное место, где JWT бэкенда касается сервера Next. Наружу токен
  * никогда не уходит — только httpOnly-кука и профиль пользователя.
  */
+
+/**
+ * GET-запросы под /auth/* (сейчас только /auth/me) — более специфичный маршрут
+ * перехватывает их раньше общего [...path]-прокси, так что без этого обработчика
+ * они молча падали с 405, и на клиенте текущий пользователь был всегда undefined.
+ */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  const token = req.cookies.get(COOKIE_TOKEN)?.value;
+  const headers: Record<string, string> = {};
+  if (token) headers.authorization = `Bearer ${token}`;
+
+  const upstream = await backendFetch(`/api/auth/${path.join('/')}`, { method: 'GET', headers });
+  const text = await upstream.text();
+  return new NextResponse(text, {
+    status: upstream.status,
+    headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json' },
+  });
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const subpath = path.join('/');

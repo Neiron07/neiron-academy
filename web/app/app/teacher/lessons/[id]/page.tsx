@@ -98,8 +98,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     if (!data || !allMarked) return;
     setCompleting(true);
     try {
-      const items = data.roster.map((s) => ({ student_id: s.student_id, status: marks[s.student_id] as AttendanceStatus }));
-      await api.post(`/lessons/${id}/attendance`, { items });
+      // Пустой ростер (группа без активных учеников) — бэкенд требует непустой
+      // items[], поэтому просто пропускаем шаг отметки, отмечать всё равно некого.
+      if (data.roster.length > 0) {
+        const items = data.roster.map((s) => ({ student_id: s.student_id, status: marks[s.student_id] as AttendanceStatus }));
+        await api.post(`/lessons/${id}/attendance`, { items });
+      }
       await api.post(`/lessons/${id}/complete`, topicId ? { topic_id: topicId } : {});
       sessionStorage.removeItem(draftKey);
       qc.invalidateQueries({ queryKey: ['lesson', id] });

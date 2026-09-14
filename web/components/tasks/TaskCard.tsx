@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MoreVertical, User, Clock, ArrowRightCircle, Undo2, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, User, Clock, CalendarPlus, ArrowRightCircle, Undo2, Pencil, Trash2 } from 'lucide-react';
 import type { Task, TaskStatus } from '@/lib/types';
 import { STATUS_COLUMNS, PRIORITY_DOT, TYPE_LABEL } from '@/lib/task-labels';
-import { formatRelativeDateTime } from '@/lib/format';
+import { formatRelativeDateTime, formatDate } from '@/lib/format';
 
 export function TaskCard({
   task,
@@ -55,7 +55,7 @@ export function TaskCard({
       onDragStart={onDragStart}
       className={`rounded-2xl border bg-purple-deep p-3 transition-colors ${
         draggable ? 'cursor-grab active:cursor-grabbing' : ''
-      } ${overdue ? 'border-white/40' : 'border-purple-mid'}`}
+      } ${overdue ? 'border-[#F87171]/60' : 'border-purple-mid'}`}
     >
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2">
@@ -147,9 +147,14 @@ export function TaskCard({
             <User className="size-3.5" aria-hidden /> Свободна
           </span>
         )}
+        <span className="flex items-center gap-1">
+          <CalendarPlus className="size-3.5" aria-hidden /> {formatDate(task.created_at)}
+        </span>
         {task.due_at && (
-          <span className={`flex items-center gap-1 ${overdue ? 'text-white' : ''}`}>
-            <Clock className="size-3.5" aria-hidden /> {formatRelativeDateTime(task.due_at)}
+          <span className={`flex items-center gap-1 ${overdue ? 'font-medium text-[#F87171]' : ''}`}>
+            <Clock className="size-3.5" aria-hidden />
+            {overdue ? 'Просрочено: ' : 'Срок: '}
+            {formatRelativeDateTime(task.due_at)}
           </span>
         )}
         {task.type !== 'assigned' && task.type !== 'personal' && <span>{TYPE_LABEL[task.type]}</span>}

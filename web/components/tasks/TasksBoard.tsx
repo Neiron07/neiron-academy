@@ -125,7 +125,7 @@ export function TasksBoard({ canManage }: { canManage: boolean }) {
       )}
 
       {!isLoading && !isEmpty && (
-        <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:overflow-visible">
+        <div className="flex items-start gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-5 lg:items-start lg:overflow-visible">
           {STATUS_COLUMNS.map((col) => {
             const items = byStatus.get(col.id) ?? [];
             return (
@@ -137,7 +137,7 @@ export function TasksBoard({ canManage }: { canManage: boolean }) {
                 }}
                 onDragLeave={() => setDragOverStatus((s) => (s === col.id ? null : s))}
                 onDrop={(e) => handleDrop(col.id, e)}
-                className={`w-[280px] shrink-0 rounded-2xl border p-2 transition-colors lg:w-auto ${
+                className={`flex w-[280px] shrink-0 flex-col rounded-2xl border p-2 transition-colors lg:w-auto ${
                   dragOverStatus === col.id ? 'border-purple bg-purple/5' : 'border-purple-mid/60'
                 }`}
               >
@@ -145,7 +145,8 @@ export function TasksBoard({ canManage }: { canManage: boolean }) {
                   <p className="text-sm font-medium text-white">{col.label}</p>
                   <span className="text-xs text-muted">{items.length}</span>
                 </div>
-                <div className="min-h-8 space-y-2">
+                <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-0.5">
+                  {items.length === 0 && <p className="px-1 text-xs text-muted">Пусто</p>}
                   {items.map((task) => {
                     const isMine = task.assignee_id === me?.id;
                     return (

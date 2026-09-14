@@ -152,8 +152,13 @@ export default async function lessonRoutes(app: FastifyInstance) {
 
     const marked = await one<{ cnt: string }>(
       `select count(*)::text as cnt from attendance where lesson_id = $1`, [id]);
+    // Тот же фильтр u.is_active, что и в ростере урока — иначе ученик с
+    // деактивированным логином, но ещё «активным» enrollment, невидим
+    // преподавателю, а урок всё равно требует отметить и его.
     const enrolled = await one<{ cnt: string }>(
-      `select count(*)::text as cnt from enrollments where group_id = $1 and status='active'`,
+      `select count(*)::text as cnt
+         from enrollments e join users u on u.id = e.student_id
+        where e.group_id = $1 and e.status='active' and u.is_active`,
       [lesson.group_id]);
 
     if (Number(marked?.cnt ?? 0) < Number(enrolled?.cnt ?? 0)) {
