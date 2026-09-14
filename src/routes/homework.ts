@@ -5,6 +5,7 @@ import { AppError } from '../lib/errors.js';
 import { applyCoins } from '../lib/coins.js';
 import { evaluateAchievements } from '../lib/achievements.js';
 import { COIN_RULES } from '../lib/rules.js';
+import { audit } from '../lib/audit.js';
 
 export default async function homeworkRoutes(app: FastifyInstance) {
   const staff = app.auth(['teacher', 'admin']);
@@ -27,11 +28,13 @@ export default async function homeworkRoutes(app: FastifyInstance) {
       if (!own) throw new AppError(403, 'FORBIDDEN', 'Это не ваша группа');
     }
 
-    return one(
+    const hw = await one<{ id: string }>(
       `insert into homeworks (group_id, topic_id, title, description, link, attachments, deadline_at, created_by)
        values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
       [body.group_id, body.topic_id ?? null, body.title, body.description ?? null,
        body.link ?? null, JSON.stringify(body.attachments), body.deadline_at ?? null, req.user!.id]);
+    await audit({ actorId: req.user!.id, action: 'homework.create', entity: 'homeworks', entityId: hw!.id, diff: { group_id: body.group_id, title: body.title } });
+    return hw;
   });
 
   /**
@@ -139,6 +142,7 @@ export default async function homeworkRoutes(app: FastifyInstance) {
       await evaluateAchievements(sub.student_id);
     }
 
+    await audit({ actorId: req.user!.id, action: 'homework.review', entity: 'submissions', entityId: id, diff: { status: body.status } });
     return { ok: true };
   });
 

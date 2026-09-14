@@ -628,6 +628,24 @@ export interface Task {
   updated_at: string;
 }
 
+// -------------------------------------------------------- журнал действий
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_role: string | null;
+  action: string;
+  entity: string | null;
+  entity_id: string | null;
+  diff: unknown;
+  created_at: string;
+}
+
+export interface AuditLogResponse {
+  rows: AuditLogEntry[];
+  total: number;
+}
+
 export interface TaskTemplate {
   id: string;
   title: string;

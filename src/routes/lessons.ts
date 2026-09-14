@@ -110,6 +110,7 @@ export default async function lessonRoutes(app: FastifyInstance) {
       await awardAttendance(id, item.student_id, item.status, req.user!.id);
     }
 
+    await audit({ actorId: req.user!.id, action: 'lesson.attendance', entity: 'lessons', entityId: id, diff: { marked: body.items.length } });
     return { ok: true, marked: body.items.length };
   });
 
@@ -139,6 +140,7 @@ export default async function lessonRoutes(app: FastifyInstance) {
     });
 
     await evaluateAchievements(body.student_id);
+    await audit({ actorId: req.user!.id, action: 'lesson.coins_manual', entity: 'lessons', entityId: id, diff: { student_id: body.student_id, coins: body.coins, reason: body.reason } });
     return { ok: true, transaction: tx0 };
   });
 
@@ -249,6 +251,7 @@ export default async function lessonRoutes(app: FastifyInstance) {
       }
     }
 
+    await audit({ actorId: req.user!.id, action: 'lesson.feedback', entity: 'lessons', entityId: id, diff: { saved: body.items.length } });
     return { ok: true, saved: body.items.length };
   });
 

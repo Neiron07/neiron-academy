@@ -376,6 +376,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       await c.query(
         `insert into enrollments (group_id, student_id) values ($1,$2)`, [body.group_id, id]);
     });
+    await audit({ actorId: req.user!.id, action: 'student.enroll', entity: 'users', entityId: id, diff: body });
     return { ok: true };
   });
 
@@ -491,7 +492,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       })).default([]),
     }).parse(req.body);
 
-    return tx(async (c) => {
+    const group = await tx(async (c) => {
       const g = await c.query(
         `insert into groups (branch_id, course_id, teacher_id, name, room, capacity)
          values ($1,$2,$3,$4,$5,$6) returning *`,
@@ -507,6 +508,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       await c.query(`select generate_lessons(14)`);
       return g.rows[0];
     });
+    await audit({ actorId: req.user!.id, action: 'group.create', entity: 'groups', entityId: group.id, diff: { name: body.name, course_id: body.course_id } });
+    return group;
   });
 
   /** Редактирование группы: имя, кабинет, вместимость, преподаватель, филиал, статус. */
@@ -719,11 +722,13 @@ export default async function adminRoutes(app: FastifyInstance) {
       stock: z.number().int().min(0).nullable().default(null),
     }).parse(req.body);
 
-    return one(
+    const item = await one(
       `insert into shop_items (branch_id, title, description, image_url, kind, price_coins, cost_kzt, stock)
        values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
       [config.BRANCH_ID, body.title, body.description ?? null, body.image_url ?? null,
        body.kind, body.price_coins, body.cost_kzt, body.stock]);
+    await audit({ actorId: req.user!.id, action: 'shop_item.create', entity: 'shop_items', entityId: item!.id, diff: { title: body.title, price_coins: body.price_coins } });
+    return item;
   });
 
   // =================================================== ЛИДЫ
@@ -740,9 +745,46 @@ export default async function adminRoutes(app: FastifyInstance) {
       status: z.enum(['new', 'contacted', 'trial', 'won', 'lost']),
       comment: z.string().optional(),
     }).parse(req.body);
-    return one(
+    const lead = await one(
       `update leads set status=$2, comment=coalesce($3, comment) where id=$1 returning *`,
       [id, body.status, body.comment ?? null]);
+    await audit({ actorId: req.user!.id, action: 'lead.update', entity: 'leads', entityId: id, diff: body });
+    return lead;
+  });
+
+  // =================================================== ЖУРНАЛ ДЕЙСТВИЙ
+  /** Кто из сотрудников что сделал — фильтры по человеку, типу действия и периоду. */
+  app.get('/audit-log', { preHandler: admin }, async (req) => {
+    const q = z.object({
+      actor_id: z.string().uuid().optional(),
+      action: z.string().optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(100),
+      offset: z.coerce.number().int().min(0).default(0),
+    }).parse(req.query);
+
+    const filters = `
+       where ($1::uuid is null or a.actor_id = $1)
+         and ($2::text is null or a.action ilike $2 || '%')
+         and ($3::timestamptz is null or a.created_at >= $3)
+         and ($4::timestamptz is null or a.created_at <= $4)`;
+    const params = [q.actor_id ?? null, q.action ?? null, q.from ?? null, q.to ?? null];
+
+    const rows = await query(
+      `select a.id, a.actor_id, u.full_name as actor_name, u.role as actor_role,
+              a.action, a.entity, a.entity_id, a.diff, a.created_at
+         from audit_log a
+    left join users u on u.id = a.actor_id
+         ${filters}
+        order by a.created_at desc
+        limit $5 offset $6`,
+      [...params, q.limit, q.offset]);
+
+    const total = await one<{ cnt: string }>(
+      `select count(*)::text as cnt from audit_log a ${filters}`, params);
+
+    return { rows, total: Number(total?.cnt ?? 0) };
   });
 
   // =================================================== КАЛЕНДАРЬ

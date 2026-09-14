@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { one, query } from '../db.js';
 import { AppError } from '../lib/errors.js';
+import { audit } from '../lib/audit.js';
 
 /** Материалы к уроку/группе: ссылка или заметка, которую препод оставляет ученикам. */
 export default async function materialsRoutes(app: FastifyInstance) {
@@ -21,10 +22,12 @@ export default async function materialsRoutes(app: FastifyInstance) {
       if (!own) throw new AppError(403, 'FORBIDDEN', 'Это не ваша группа');
     }
 
-    return one(
+    const material = await one<{ id: string }>(
       `insert into materials (group_id, lesson_id, title, description, url, created_by)
        values ($1,$2,$3,$4,$5,$6) returning *`,
       [body.group_id, body.lesson_id ?? null, body.title, body.description ?? null, body.url ?? null, req.user!.id]);
+    await audit({ actorId: req.user!.id, action: 'material.create', entity: 'materials', entityId: material!.id, diff: { group_id: body.group_id, title: body.title } });
+    return material;
   });
 
   app.get('/', { preHandler: staff }, async (req) => {
@@ -47,6 +50,7 @@ export default async function materialsRoutes(app: FastifyInstance) {
       throw new AppError(403, 'FORBIDDEN', 'Это не ваша группа');
     }
     await query(`delete from materials where id=$1`, [id]);
+    await audit({ actorId: req.user!.id, action: 'material.delete', entity: 'materials', entityId: id });
     return { ok: true };
   });
 
