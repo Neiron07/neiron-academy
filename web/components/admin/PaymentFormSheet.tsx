@@ -8,6 +8,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { almatyDayKey } from '@/lib/format';
 
 const METHODS = [
   { id: 'kaspi', label: 'Kaspi' },
@@ -31,7 +32,9 @@ export function PaymentFormSheet({ payment, onClose }: { payment: Payment | null
     setAmount(String(payment.amount_kzt));
     setLessons(String(payment.lessons_count));
     setMethod(payment.method);
-    setPaidAt(payment.paid_at.slice(0, 10));
+    // almatyDayKey, не slice(0,10): pg отдаёт date-колонку как Date, чья сериализация
+    // в UTC ISO может уйти на день назад относительно календарной даты в Алматы.
+    setPaidAt(almatyDayKey(payment.paid_at));
     setComment(payment.comment ?? '');
     setError('');
   }, [payment]);

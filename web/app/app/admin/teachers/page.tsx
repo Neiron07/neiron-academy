@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TeacherFormSheet } from '@/components/admin/TeacherFormSheet';
+import { STAFF_ROLE_LABEL } from '@/lib/constants';
 
 export default function AdminTeachersPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -45,7 +46,7 @@ export default function AdminTeachersPage() {
                 <p className="truncate font-medium text-white">{t.full_name}</p>
                 <p className="text-sm text-lavender">{t.phone}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <StatusBadge tone="neutral" label={t.role === 'admin' ? 'Админ' : 'Преподаватель'} />
+                  <StatusBadge tone="neutral" label={STAFF_ROLE_LABEL[t.role]} />
                   {!t.is_active && <StatusBadge tone="negative" label="Деактивирован" />}
                   {Number(t.groups_count) > 0 && <StatusBadge tone="positive" label={`${t.groups_count} групп`} />}
                 </div>

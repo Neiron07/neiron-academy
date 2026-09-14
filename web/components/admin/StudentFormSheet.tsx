@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useToast } from '@/components/ui/Toast';
+import { almatyDayKey } from '@/lib/format';
 
 const STATUSES = [
   { id: 'active', label: 'Учится' },
@@ -28,6 +29,7 @@ export function StudentFormSheet({
 
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [paymentNoteAt, setPaymentNoteAt] = useState('');
   const [branchId, setBranchId] = useState('');
   const [groupId, setGroupId] = useState('');
   const [status, setStatus] = useState<(typeof STATUSES)[number]['id']>('active');
@@ -50,7 +52,11 @@ export function StudentFormSheet({
   useEffect(() => {
     if (!student) return;
     setFullName(student.full_name);
-    setBirthDate(student.birth_date ? student.birth_date.slice(0, 10) : '');
+    // almatyDayKey, не slice(0,10): pg возвращает date-колонку как Date, и её
+    // сериализация в UTC ISO может сдвинуться на день назад относительно
+    // календарной даты в Алматы (TZ сервера +5) — нужно явно пересчитать.
+    setBirthDate(student.birth_date ? almatyDayKey(student.birth_date) : '');
+    setPaymentNoteAt(student.payment_note_at ? almatyDayKey(student.payment_note_at) : '');
     setBranchId(student.branch_id ?? '');
     setGroupId(student.group_id ?? '');
     setStatus((student.status as (typeof STATUSES)[number]['id']) ?? 'active');
@@ -67,6 +73,7 @@ export function StudentFormSheet({
       api.patch(`/admin/students/${student!.id}`, {
         full_name: fullName.trim(),
         birth_date: birthDate || null,
+        payment_note_at: paymentNoteAt || null,
         branch_id: branchId || undefined,
         group_id: groupId || null,
         status,
@@ -91,6 +98,13 @@ export function StudentFormSheet({
       <div className="space-y-3">
         <Input label="Имя ученика" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus />
         <Input label="Дата рождения" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+        <Input
+          label="Последняя оплата — заметка (необязательно)"
+          type="date"
+          value={paymentNoteAt}
+          onChange={(e) => setPaymentNoteAt(e.target.value)}
+          hint="Просто пометка для себя, не связана с реальной историей платежей"
+        />
         <label className="block">
           <span className="mb-1.5 block text-sm text-lavender">Филиал</span>
           <select

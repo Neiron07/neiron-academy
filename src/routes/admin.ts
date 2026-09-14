@@ -182,7 +182,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const rows = await query(
       `select u.id, u.full_name, u.login, u.is_active, u.branch_id, u.created_at,
               b.name as branch_name,
-              s.status, s.birth_date, s.coins_balance, s.xp_total,
+              s.status, s.birth_date, s.coins_balance, s.xp_total, s.payment_note_at,
               g.id as group_id, g.name as group_name, e.joined_at,
               pay.lessons_left, pay.weekly_lessons,
               pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
@@ -219,6 +219,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       is_active: z.boolean().optional(),
       status: z.enum(['active', 'paused', 'left']).optional(),
       group_id: z.string().uuid().nullable().optional(),
+      payment_note_at: z.string().nullable().optional(),
       parent: z.object({
         full_name: z.string().min(2),
         phone: z.string(),
@@ -241,6 +242,9 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
       if (body.birth_date !== undefined) {
         await c.query(`update students set birth_date=$2 where user_id=$1`, [id, body.birth_date]);
+      }
+      if (body.payment_note_at !== undefined) {
+        await c.query(`update students set payment_note_at=$2 where user_id=$1`, [id, body.payment_note_at]);
       }
       if (body.status !== undefined) {
         await c.query(`update students set status=$2::enroll_status where user_id=$1`, [id, body.status]);

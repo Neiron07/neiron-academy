@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { Home, Users, CalendarDays, Package, ClipboardList } from 'lucide-react';
 import { MobileShell } from '@/components/layout/MobileShell';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -13,8 +14,13 @@ const items = [
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  // Канбану из 5 колонок тесно в стандартных 480px — расширяем только на десктопе
+  // и только для этого раздела, мобильная раскладка везде остаётся как была.
+  const isTasks = pathname?.startsWith('/app/teacher/tasks');
+
   return (
-    <MobileShell>
+    <MobileShell maxWidthClass={isTasks ? 'max-w-[480px] lg:max-w-[1300px]' : 'max-w-[480px]'}>
       {children}
       <BottomNav items={items} />
     </MobileShell>

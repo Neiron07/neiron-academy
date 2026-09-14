@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { TeacherFormSheet } from '@/components/admin/TeacherFormSheet';
 import { formatRelativeDateTime } from '@/lib/format';
+import { STAFF_ROLE_LABEL } from '@/lib/constants';
 
 export default function TeacherDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -50,7 +51,7 @@ export default function TeacherDetailPage({ params }: { params: Promise<{ id: st
           <h1 className="font-display text-2xl font-semibold text-white">{teacher.full_name}</h1>
           <p className="text-lavender">{teacher.phone}</p>
           <div className="mt-2 flex gap-1.5">
-            <StatusBadge tone="neutral" label={teacher.role === 'admin' ? 'Админ' : 'Преподаватель'} />
+            <StatusBadge tone="neutral" label={STAFF_ROLE_LABEL[teacher.role]} />
             <StatusBadge tone={teacher.is_active ? 'positive' : 'negative'} label={teacher.is_active ? 'Активен' : 'Деактивирован'} />
           </div>
         </div>

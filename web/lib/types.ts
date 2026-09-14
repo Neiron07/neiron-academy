@@ -465,6 +465,8 @@ export interface AdminStudentRow {
   birth_date: string | null;
   coins_balance: number;
   xp_total: number;
+  /** Заметка админа «для себя» — независимо от реальной истории в payments (last_payment_at ниже). */
+  payment_note_at: string | null;
   group_id: string | null;
   group_name: string | null;
   joined_at: string | null;

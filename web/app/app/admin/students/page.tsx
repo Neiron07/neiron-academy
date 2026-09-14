@@ -97,6 +97,7 @@ function StudentsContent() {
                 <th className="px-4 py-3 font-medium">Оплата в месяц</th>
                 <th className="px-4 py-3 font-medium">Всего оплачено</th>
                 <th className="px-4 py-3 font-medium">Посл. оплата</th>
+                <th className="px-4 py-3 font-medium">Оплата (заметка)</th>
                 <th className="px-4 py-3 font-medium">След. оплата</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -148,6 +149,7 @@ function StudentsContent() {
                     <td className="px-4 py-3 text-white">{s.last_payment_amount ? formatKzt(s.last_payment_amount) : '—'}</td>
                     <td className="px-4 py-3 text-white">{s.total_paid ? formatKzt(s.total_paid) : '—'}</td>
                     <td className="px-4 py-3 text-lavender">{s.last_payment_at ? formatDate(s.last_payment_at) : '—'}</td>
+                    <td className="px-4 py-3 text-lavender">{s.payment_note_at ? formatDate(s.payment_note_at) : '—'}</td>
                     <td className="px-4 py-3">
                       {days === null ? (
                         <span className="text-lavender">—</span>

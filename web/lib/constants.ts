@@ -22,6 +22,12 @@ export const ERROR_HINTS: Record<string, string> = {
   LOCKED: 'Слишком много попыток. Подождите немного и попробуйте снова.',
 };
 
+export const STAFF_ROLE_LABEL: Record<'admin' | 'teacher' | 'marketer', string> = {
+  admin: 'Админ',
+  teacher: 'Преподаватель',
+  marketer: 'Маркетолог',
+};
+
 export const ATTENDANCE_LABEL: Record<string, string> = {
   present: 'Был',
   late: 'Опоздал',
