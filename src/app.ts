@@ -19,6 +19,7 @@ import materialsRoutes from './routes/materials.js';
 import parentRoutes from './routes/parent.js';
 import adminRoutes from './routes/admin.js';
 import taskRoutes from './routes/tasks.js';
+import gamesRoutes from './routes/games.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -115,6 +116,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(parentRoutes,   { prefix: '/api/parent' });
   await app.register(adminRoutes,    { prefix: '/api/admin' });
   await app.register(taskRoutes,     { prefix: '/api/tasks' });
+  await app.register(gamesRoutes,    { prefix: '/api/games' });
 
   return app;
 }

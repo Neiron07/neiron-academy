@@ -12,6 +12,7 @@ export function TaskCard({
   canManage,
   draggable,
   onDragStart,
+  onCardDrop,
   onMove,
   onTake,
   onRelease,
@@ -23,6 +24,7 @@ export function TaskCard({
   canManage: boolean;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
+  onCardDrop?: (e: React.DragEvent) => void;
   onMove: (status: TaskStatus) => void;
   onTake: () => void;
   onRelease: () => void;
@@ -53,6 +55,8 @@ export function TaskCard({
     <div
       draggable={draggable}
       onDragStart={onDragStart}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onCardDrop}
       className={`rounded-2xl border bg-purple-deep p-3 transition-colors ${
         draggable ? 'cursor-grab active:cursor-grabbing' : ''
       } ${overdue ? 'border-[#F87171]/60' : 'border-purple-mid'}`}

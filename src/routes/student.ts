@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { one, query } from '../db.js';
 import { levelFromXp } from '../lib/rules.js';
 import { AppError } from '../lib/errors.js';
+import { applyCoins } from '../lib/coins.js';
+
+const MASCOT_UNLOCK_COST = 100;
 
 export default async function studentRoutes(app: FastifyInstance) {
   const student = app.auth(['student']);
@@ -11,8 +14,8 @@ export default async function studentRoutes(app: FastifyInstance) {
   app.get('/profile', { preHandler: student }, async (req) => {
     const id = req.user!.id;
 
-    const s = await one<{ coins_balance: number; xp_total: number; equipped: any }>(
-      `select coins_balance, xp_total, equipped from students where user_id = $1`, [id]);
+    const s = await one<{ coins_balance: number; xp_total: number; equipped: any; mascot_unlocked: boolean; gender: string | null }>(
+      `select coins_balance, xp_total, equipped, mascot_unlocked, gender from students where user_id = $1`, [id]);
     if (!s) throw new AppError(404, 'NOT_FOUND', 'Профиль не найден');
 
     const group = await one(
@@ -54,13 +57,39 @@ export default async function studentRoutes(app: FastifyInstance) {
       name: req.user!.full_name,
       coins: s.coins_balance,
       mascot: levelFromXp(s.xp_total),
+      mascotUnlocked: s.mascot_unlocked,
       equipped: s.equipped,
+      gender: s.gender,
       group,
       achievements,
       locked,
       nextLesson,
       pendingHomeworkCount: Number(pendingHomework?.cnt ?? 0),
     };
+  });
+
+  /** Разовая покупка маскота за коины — до этого в профиле только силуэт. */
+  app.post('/mascot/unlock', { preHandler: student }, async (req) => {
+    const id = req.user!.id;
+    const s = await one<{ coins_balance: number; mascot_unlocked: boolean }>(
+      `select coins_balance, mascot_unlocked from students where user_id = $1`, [id]);
+    if (!s) throw new AppError(404, 'NOT_FOUND', 'Профиль не найден');
+    if (s.mascot_unlocked) return { ok: true, alreadyUnlocked: true };
+    if (s.coins_balance < MASCOT_UNLOCK_COST) {
+      throw new AppError(400, 'INSUFFICIENT_COINS', `Нужно ${MASCOT_UNLOCK_COST} коинов, а у тебя ${s.coins_balance}`);
+    }
+
+    await applyCoins({
+      studentId: id,
+      coins: -MASCOT_UNLOCK_COST,
+      xp: 0,
+      reasonCode: 'mascot_unlock',
+      reasonText: 'Открыл своего помощника',
+      idempotencyKey: `mascot_unlock:${id}`,
+    });
+    await query(`update students set mascot_unlocked = true where user_id = $1`, [id]);
+
+    return { ok: true, alreadyUnlocked: false };
   });
 
   /** История коинов — прозрачность спасает от споров «а куда делись». */
@@ -72,37 +101,37 @@ export default async function studentRoutes(app: FastifyInstance) {
         order by created_at desc limit $2`, [req.user!.id, q.limit]);
   });
 
-  /** Рейтинг внутри своей группы. Сумму коинов других детей НЕ показываем. */
+  /**
+   * Топ-10 школы за месяц (не только своя группа). Сумму коинов других детей
+   * не показываем. Если сам ученик не попал в топ-10 — его строка добавляется
+   * отдельно, с настоящей позицией, чтобы он видел свой прогресс.
+   */
   app.get('/rating', { preHandler: student }, async (req) => {
     const id = req.user!.id;
-    const group = await one<{ group_id: string }>(
-      `select group_id from enrollments where student_id = $1 and status='active' limit 1`, [id]);
-    if (!group) return { group: null, rows: [] };
-
     const monthStart = `date_trunc('month', now() at time zone 'Asia/Almaty')`;
 
     const rows = await query(
-      `select u.id,
-              u.full_name,
-              s.xp_total,
-              coalesce(m.month_xp, 0) as month_xp,
-              (u.id = $2) as is_me,
-              rank() over (order by coalesce(m.month_xp,0) desc, s.xp_total desc) as position
-         from enrollments e
-         join users u on u.id = e.student_id
-         join students s on s.user_id = u.id
-         left join (
-           select student_id, sum(xp) as month_xp
-             from coin_transactions
-            where created_at >= ${monthStart}
-            group by student_id
-         ) m on m.student_id = u.id
-        where e.group_id = $1 and e.status='active' and u.is_active
-        order by position`,
-      [group.group_id, id]);
+      `with ranked as (
+         select u.id,
+                u.full_name,
+                s.xp_total,
+                coalesce(m.month_xp, 0) as month_xp,
+                (u.id = $1) as is_me,
+                rank() over (order by coalesce(m.month_xp,0) desc, s.xp_total desc) as position
+           from users u
+           join students s on s.user_id = u.id
+           left join (
+             select student_id, sum(xp) as month_xp
+               from coin_transactions
+              where created_at >= ${monthStart}
+              group by student_id
+           ) m on m.student_id = u.id
+          where u.role = 'student' and u.is_active and s.status = 'active'
+       )
+       select * from ranked where position <= 10 or is_me order by position`,
+      [id]);
 
     return {
-      group: group.group_id,
       season: new Date().toISOString().slice(0, 7),
       rows: rows.map((r: any) => ({
         position: Number(r.position),

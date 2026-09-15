@@ -1,23 +1,44 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, Sparkles } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronRight, Sparkles, Lock, Mail } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
 import type { StudentProfile } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { CoinBalance } from '@/components/ui/CoinBalance';
+import { CoinIcon } from '@/components/ui/CoinIcon';
 import { Glow } from '@/components/ui/Glow';
 import { MascotSvg } from '@/components/mascot/MascotSvg';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 import { formatRelativeDateTime } from '@/lib/format';
+import { getDailyMessage } from '@/lib/motivational-messages';
+
+const MASCOT_UNLOCK_COST = 100;
 
 export default function StudentHomePage() {
+  const qc = useQueryClient();
+  const toast = useToast();
+
   const { data, isLoading } = useQuery({
     queryKey: ['student-profile'],
     queryFn: () => api.get<StudentProfile>('/me/profile'),
   });
+
+  const unlock = useMutation({
+    mutationFn: () => api.post('/me/mascot/unlock'),
+    onSuccess: () => {
+      toast('Твой помощник открыт!', 'success');
+      qc.invalidateQueries({ queryKey: ['student-profile'] });
+    },
+    onError: (e) => toast(e instanceof ApiError ? e.message : 'Не удалось открыть помощника', 'error'),
+  });
+
+  const message = useMemo(() => (data ? getDailyMessage(data.gender, data.name) : ''), [data]);
 
   if (isLoading || !data) {
     return (
@@ -29,28 +50,73 @@ export default function StudentHomePage() {
   }
 
   const lessonsToNext = Math.ceil(data.mascot.xpToNextLevel / 15);
+  const canUnlock = data.coins >= MASCOT_UNLOCK_COST;
 
   return (
     <>
       <TopBar title={`Привет, ${data.name.split(' ')[0]}`} />
 
+      <Card className="mb-4 border-purple bg-purple/10">
+        <div className="flex items-start gap-2.5">
+          <Mail className="mt-0.5 size-5 shrink-0 text-purple" aria-hidden />
+          <div>
+            <p className="text-sm font-medium text-lavender">Письмо для тебя</p>
+            <p className="mt-1 text-white">{message}</p>
+          </div>
+        </div>
+      </Card>
+
       <div className="relative flex flex-col items-center py-4">
         <Glow className="left-1/2 top-4 size-72 -translate-x-1/2" />
-        <Link href="/app/student/inventory" className="relative z-10">
-          <MascotSvg stageCode={data.mascot.stageCode} frame={data.equipped.frame} />
-        </Link>
-        <p className="relative z-10 mt-2 font-display text-lg font-semibold text-white">{data.mascot.stageTitle}</p>
 
-        <div className="relative z-10 mt-3 w-full max-w-xs">
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-purple-mid/40">
-            <div className="h-full rounded-full bg-purple transition-[width]" style={{ width: `${data.mascot.progressPercent}%` }} />
-          </div>
-          <p className="mt-2 text-center text-sm text-lavender">
-            {data.mascot.isMax
-              ? 'Максимальный уровень достигнут'
-              : `До эволюции ${data.mascot.xpToNextLevel} XP — это примерно ${lessonsToNext} занятий`}
-          </p>
-        </div>
+        {data.mascotUnlocked ? (
+          <>
+            <Link href="/app/student/inventory" className="relative z-10">
+              <MascotSvg stageCode={data.mascot.stageCode} frame={data.equipped.frame} />
+            </Link>
+            <p className="relative z-10 mt-2 font-display text-lg font-semibold text-white">{data.mascot.stageTitle}</p>
+
+            <div className="relative z-10 mt-3 w-full max-w-xs">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-purple-mid/40">
+                <div className="h-full rounded-full bg-purple transition-[width]" style={{ width: `${data.mascot.progressPercent}%` }} />
+              </div>
+              <p className="mt-2 text-center text-sm text-lavender">
+                {data.mascot.isMax
+                  ? 'Максимальный уровень достигнут'
+                  : `До эволюции ${data.mascot.xpToNextLevel} XP — это примерно ${lessonsToNext} занятий`}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="relative z-10">
+              <div className="opacity-30 grayscale">
+                <MascotSvg stageCode="egg" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Lock className="size-10 text-white" aria-hidden />
+              </div>
+            </div>
+            <p className="relative z-10 mt-3 text-center font-display text-lg font-semibold text-white">
+              Открой своего помощника
+            </p>
+            <p className="relative z-10 mt-1 max-w-xs text-center text-sm text-lavender">
+              AIdos будет расти вместе с тобой и меняться с каждым уровнем — но сначала его нужно открыть
+            </p>
+            <Button
+              className="relative z-10 mt-4"
+              size="lg"
+              disabled={!canUnlock}
+              loading={unlock.isPending}
+              onClick={() => unlock.mutate()}
+            >
+              <CoinIcon className="size-5" /> Открыть за {MASCOT_UNLOCK_COST}
+            </Button>
+            {!canUnlock && (
+              <p className="relative z-10 mt-2 text-sm text-muted">Не хватает {MASCOT_UNLOCK_COST - data.coins} коинов</p>
+            )}
+          </>
+        )}
       </div>
 
       <div className="my-5 flex justify-center">

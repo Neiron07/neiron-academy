@@ -106,6 +106,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       full_name: z.string().min(2),
       birth_date: z.string().optional(),
+      gender: z.enum(['male', 'female']).optional(),
       branch_id: z.string().uuid().optional(),
       group_id: z.string().uuid().optional(),
       parent: z.object({
@@ -125,8 +126,8 @@ export default async function adminRoutes(app: FastifyInstance) {
         [body.branch_id ?? config.BRANCH_ID, body.full_name, login, await hash(pin), req.user!.id]);
       const studentId = u.rows[0].id;
 
-      await c.query(`insert into students (user_id, birth_date) values ($1,$2)`,
-        [studentId, body.birth_date ?? null]);
+      await c.query(`insert into students (user_id, birth_date, gender) values ($1,$2,$3)`,
+        [studentId, body.birth_date ?? null, body.gender ?? null]);
 
       if (body.group_id) {
         const cap = await c.query(
@@ -182,7 +183,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const rows = await query(
       `select u.id, u.full_name, u.login, u.is_active, u.branch_id, u.created_at,
               b.name as branch_name,
-              s.status, s.birth_date, s.coins_balance, s.xp_total, s.payment_note_at,
+              s.status, s.birth_date, s.gender, s.coins_balance, s.xp_total, s.payment_note_at,
               g.id as group_id, g.name as group_name, e.joined_at,
               pay.lessons_left, pay.weekly_lessons,
               pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
@@ -215,6 +216,7 @@ export default async function adminRoutes(app: FastifyInstance) {
     const body = z.object({
       full_name: z.string().min(2).optional(),
       birth_date: z.string().nullable().optional(),
+      gender: z.enum(['male', 'female']).nullable().optional(),
       branch_id: z.string().uuid().optional(),
       is_active: z.boolean().optional(),
       status: z.enum(['active', 'paused', 'left']).optional(),
@@ -242,6 +244,9 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
       if (body.birth_date !== undefined) {
         await c.query(`update students set birth_date=$2 where user_id=$1`, [id, body.birth_date]);
+      }
+      if (body.gender !== undefined) {
+        await c.query(`update students set gender=$2 where user_id=$1`, [id, body.gender]);
       }
       if (body.payment_note_at !== undefined) {
         await c.query(`update students set payment_note_at=$2 where user_id=$1`, [id, body.payment_note_at]);

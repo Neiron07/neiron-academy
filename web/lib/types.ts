@@ -10,6 +10,7 @@ export type RiskLevel = 'warning' | 'critical';
 export type MascotStageCode = 'egg' | 'chick' | 'student' | 'engineer' | 'master';
 export type EquipSlot = 'frame' | 'skin' | 'title' | 'theme';
 export type CalendarEventKind = 'trial' | 'event';
+export type StudentGender = 'male' | 'female';
 
 export interface Mascot {
   level: number;
@@ -46,7 +47,9 @@ export interface StudentProfile {
   name: string;
   coins: number;
   mascot: Mascot;
+  mascotUnlocked: boolean;
   equipped: Equipped;
+  gender: StudentGender | null;
   group: { id: string; name: string; course_name: string; current_topic: string | null } | null;
   achievements: Achievement[];
   locked: Omit<Achievement, 'earned_at'>[];
@@ -81,9 +84,27 @@ export interface RatingRow {
 }
 
 export interface RatingResponse {
-  group: string | null;
   season?: string;
   rows: RatingRow[];
+}
+
+// ------------------------------------------------------------------ игры
+export interface GameLeaderboardRow {
+  position: number;
+  full_name: string;
+  score: number;
+  is_me: boolean;
+}
+
+export interface GameLeaderboardResponse {
+  myBest: number;
+  rows: GameLeaderboardRow[];
+}
+
+export interface GameScoreResponse {
+  ok: true;
+  best: number;
+  isNewBest: boolean;
 }
 
 export interface ShopItem {
@@ -463,6 +484,7 @@ export interface AdminStudentRow {
   created_at: string;
   status: string;
   birth_date: string | null;
+  gender: StudentGender | null;
   coins_balance: number;
   xp_total: number;
   /** Заметка админа «для себя» — независимо от реальной истории в payments (last_payment_at ниже). */
@@ -616,6 +638,7 @@ export interface Task {
   status: TaskStatus;
   type: TaskType;
   priority: TaskPriority;
+  position: number;
   assignee_id: string | null;
   assignee_name: string | null;
   created_by: string | null;

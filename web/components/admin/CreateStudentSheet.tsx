@@ -18,6 +18,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [branchId, setBranchId] = useState('');
   const [groupId, setGroupId] = useState('');
   const [parentName, setParentName] = useState('');
@@ -45,6 +46,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
       api.post<CreateStudentResponse>('/admin/students', {
         full_name: fullName.trim(),
         birth_date: birthDate || undefined,
+        gender: gender || undefined,
         branch_id: branchId || undefined,
         group_id: groupId || undefined,
         parent:
@@ -67,6 +69,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
   function reset() {
     setFullName('');
     setBirthDate('');
+    setGender('');
     setBranchId('');
     setGroupId('');
     setParentName('');
@@ -145,6 +148,21 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
       <div className="space-y-3">
         <Input label="Имя ученика" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus />
         <Input label="Дата рождения" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+        <div>
+          <span className="mb-1.5 block text-sm text-lavender">Пол (необязательно)</span>
+          <div className="flex gap-2">
+            {([['male', 'Мальчик'], ['female', 'Девочка']] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setGender((g) => (g === id ? '' : id))}
+                className={`flex-1 rounded-lg border py-2 text-sm ${gender === id ? 'border-purple bg-purple text-white' : 'border-purple-mid text-lavender'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="block">
           <span className="mb-1.5 block text-sm text-lavender">Филиал</span>
           <select

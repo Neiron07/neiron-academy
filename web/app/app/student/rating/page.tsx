@@ -15,38 +15,56 @@ export default function RatingPage() {
     queryFn: () => api.get<RatingResponse>('/me/rating'),
   });
 
+  const top10 = data?.rows.filter((r) => r.position <= 10) ?? [];
+  const myRow = data?.rows.find((r) => r.is_me && r.position > 10);
+
   return (
     <>
-      <TopBar title="Рейтинг группы" />
+      <TopBar title="Рейтинг" />
+      <p className="-mt-3 mb-4 text-sm text-lavender">Топ-10 учеников школы за этот месяц</p>
+
       {isLoading && (
         <div className="space-y-2">
           <SkeletonRow />
           <SkeletonRow />
         </div>
       )}
-      {data && data.rows.length === 0 && <EmptyState icon={Trophy} title="Пока нет данных за месяц" hint="Приходи на уроки — рейтинг обновляется по ходу месяца" />}
+      {data && data.rows.length === 0 && (
+        <EmptyState icon={Trophy} title="Пока нет данных за месяц" hint="Приходи на уроки — рейтинг обновляется по ходу месяца" />
+      )}
+
       <div className="space-y-2">
-        {data?.rows.map((r) => (
-          <Card
-            key={r.position}
-            className={`flex items-center justify-between gap-3 ${r.is_me ? 'border-purple bg-purple/10' : ''}`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex size-8 items-center justify-center rounded-full border border-purple-mid font-display text-sm font-semibold text-white">
-                {r.position}
-              </span>
-              <div>
-                <p className="font-medium text-white">
-                  {r.full_name}
-                  {r.is_me && <span className="ml-1.5 text-sm text-lavender">это ты</span>}
-                </p>
-                <p className="text-sm text-lavender">Уровень {r.level}</p>
-              </div>
-            </div>
-            <span className="font-display text-sm font-semibold text-white">{r.month_xp} XP</span>
-          </Card>
+        {top10.map((r) => (
+          <RatingRowCard key={r.position} r={r} />
         ))}
       </div>
+
+      {myRow && (
+        <>
+          <p className="my-3 text-center text-sm text-muted">···</p>
+          <RatingRowCard r={myRow} />
+        </>
+      )}
     </>
+  );
+}
+
+function RatingRowCard({ r }: { r: { position: number; full_name: string; month_xp: number; level: number; is_me: boolean } }) {
+  return (
+    <Card className={`flex items-center justify-between gap-3 ${r.is_me ? 'border-purple bg-purple/10' : ''}`}>
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 items-center justify-center rounded-full border border-purple-mid font-display text-sm font-semibold text-white">
+          {r.position}
+        </span>
+        <div>
+          <p className="font-medium text-white">
+            {r.full_name}
+            {r.is_me && <span className="ml-1.5 text-sm text-lavender">это ты</span>}
+          </p>
+          <p className="text-sm text-lavender">Уровень {r.level}</p>
+        </div>
+      </div>
+      <span className="font-display text-sm font-semibold text-white">{r.month_xp} XP</span>
+    </Card>
   );
 }

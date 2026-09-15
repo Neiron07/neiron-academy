@@ -6,7 +6,7 @@ import { audit } from '../lib/audit.js';
 import { POOL_TASK_LIMIT } from '../lib/tasks.js';
 
 const TASK_FIELDS = `
-  t.id, t.title, t.description, t.status, t.type, t.priority,
+  t.id, t.title, t.description, t.status, t.type, t.priority, t.position,
   t.assignee_id, au.full_name as assignee_name,
   t.created_by, cu.full_name as creator_name,
   t.due_at, t.template_id, t.source_key, t.completed_at, t.created_at, t.updated_at
@@ -34,8 +34,7 @@ export default async function taskRoutes(app: FastifyInstance) {
         where $1::boolean
            or t.assignee_id = $2
            or (t.assignee_id is null and t.status not in ('done','canceled'))
-        order by case t.priority when 'high' then 0 when 'medium' then 1 else 2 end,
-                 t.created_at desc`,
+        order by t.position asc`,
       [isAdmin, req.user!.id]);
   });
 
@@ -83,6 +82,7 @@ export default async function taskRoutes(app: FastifyInstance) {
       priority: z.enum(['low', 'medium', 'high']).optional(),
       assignee_id: z.string().uuid().optional(),
       due_at: z.string().datetime().nullable().optional(),
+      position: z.number().optional(),
     }).parse(req.body);
 
     const existing = await one<{ id: string; type: string; assignee_id: string | null; created_by: string | null }>(
@@ -93,9 +93,10 @@ export default async function taskRoutes(app: FastifyInstance) {
     const isAssignee = existing.assignee_id === req.user!.id;
     const isOwnPersonal = existing.type === 'personal' && existing.created_by === req.user!.id;
 
-    // Свой статус (двигать карточку по колонкам) может менять исполнитель или админ.
-    const changesStatusOnly = Object.keys(body).every((k) => k === 'status');
-    if (!isAdmin && !(changesStatusOnly && isAssignee) && !isOwnPersonal) throw forbidden();
+    // Свой статус и порядок карточки (двигать/переставлять у себя) может менять
+    // исполнитель или админ — это не редактирование содержания задачи.
+    const changesStatusOrPositionOnly = Object.keys(body).every((k) => k === 'status' || k === 'position');
+    if (!isAdmin && !(changesStatusOrPositionOnly && isAssignee) && !isOwnPersonal) throw forbidden();
 
     // Переназначение исполнителя — только админ.
     if (body.assignee_id !== undefined && !isAdmin) throw forbidden();
@@ -108,6 +109,7 @@ export default async function taskRoutes(app: FastifyInstance) {
          priority = coalesce($5, priority)::task_priority,
          assignee_id = coalesce($6, assignee_id),
          due_at = coalesce($7, due_at),
+         position = coalesce($8, position),
          completed_at = case when $4::text = 'done' then now()
                               when $4::text is not null then null
                               else completed_at end,
@@ -115,7 +117,7 @@ export default async function taskRoutes(app: FastifyInstance) {
        where id = $1
        returning id`,
       [id, body.title ?? null, body.description ?? null, body.status ?? null, body.priority ?? null,
-       body.assignee_id ?? null, body.due_at ?? null]);
+       body.assignee_id ?? null, body.due_at ?? null, body.position ?? null]);
 
     await audit({ actorId: req.user!.id, action: 'task.update', entity: 'tasks', entityId: id, diff: body });
     return one(`select ${TASK_FIELDS} ${TASK_JOIN} where t.id = $1`, [updated!.id]);

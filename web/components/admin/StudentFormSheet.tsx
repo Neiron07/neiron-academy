@@ -29,6 +29,7 @@ export function StudentFormSheet({
 
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [paymentNoteAt, setPaymentNoteAt] = useState('');
   const [branchId, setBranchId] = useState('');
   const [groupId, setGroupId] = useState('');
@@ -56,6 +57,7 @@ export function StudentFormSheet({
     // сериализация в UTC ISO может сдвинуться на день назад относительно
     // календарной даты в Алматы (TZ сервера +5) — нужно явно пересчитать.
     setBirthDate(student.birth_date ? almatyDayKey(student.birth_date) : '');
+    setGender(student.gender ?? '');
     setPaymentNoteAt(student.payment_note_at ? almatyDayKey(student.payment_note_at) : '');
     setBranchId(student.branch_id ?? '');
     setGroupId(student.group_id ?? '');
@@ -73,6 +75,7 @@ export function StudentFormSheet({
       api.patch(`/admin/students/${student!.id}`, {
         full_name: fullName.trim(),
         birth_date: birthDate || null,
+        gender: gender || null,
         payment_note_at: paymentNoteAt || null,
         branch_id: branchId || undefined,
         group_id: groupId || null,
@@ -98,6 +101,21 @@ export function StudentFormSheet({
       <div className="space-y-3">
         <Input label="Имя ученика" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus />
         <Input label="Дата рождения" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+        <div>
+          <span className="mb-1.5 block text-sm text-lavender">Пол (необязательно)</span>
+          <div className="flex gap-2">
+            {([['male', 'Мальчик'], ['female', 'Девочка']] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setGender((g) => (g === id ? '' : id))}
+                className={`flex-1 rounded-lg border py-2 text-sm ${gender === id ? 'border-purple bg-purple text-white' : 'border-purple-mid text-lavender'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Input
           label="Последняя оплата — заметка (необязательно)"
           type="date"
