@@ -18,7 +18,7 @@ export default function StudentGamesPage() {
               </div>
               <div>
                 <p className="font-medium text-white">Убеги от вирусов</p>
-                <p className="text-sm text-lavender">AIdos прыгает через вирусы — как в игре про динозаврика</p>
+                <p className="text-sm text-lavender">Нейрон прыгает через вирусы — как в игре про динозаврика</p>
               </div>
             </div>
             <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />

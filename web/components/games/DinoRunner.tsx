@@ -6,6 +6,7 @@ import { Trophy, RotateCcw } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { GameLeaderboardResponse, GameScoreResponse } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 
 const GAME = 'dino';
 
@@ -44,7 +45,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function drawAidos(ctx: CanvasRenderingContext2D, x: number, y: number) {
+function drawNeiron(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillStyle = BODY;
   roundRect(ctx, x, y, CHAR_W, CHAR_H, 9);
   ctx.fill();
@@ -95,6 +96,7 @@ function drawVirus(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
 
 export function DinoRunner() {
   const qc = useQueryClient();
+  const toast = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [running, setRunning] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -109,6 +111,7 @@ export function DinoRunner() {
   const submitScore = useMutation({
     mutationFn: (s: number) => api.post<GameScoreResponse>(`/games/${GAME}/score`, { score: s }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['game-leaderboard', GAME] }),
+    onError: () => toast('Не удалось сохранить результат — счёт всё равно засчитан за эту игру', 'error'),
   });
 
   // Игровое состояние живёт в ref, чтобы не перерисовывать React на каждый кадр.
@@ -235,7 +238,7 @@ export function DinoRunner() {
       ctx.setLineDash([]);
 
       for (const o of st.obstacles) drawVirus(ctx, o.x, o.y, o.r);
-      drawAidos(ctx, charX, st.charY);
+      drawNeiron(ctx, charX, st.charY);
 
       ctx.fillStyle = WHITE;
       ctx.font = '600 16px system-ui, sans-serif';
@@ -313,7 +316,7 @@ export function DinoRunner() {
               <>
                 <p className="font-display text-xl font-semibold text-white">Убеги от вирусов</p>
                 <p className="max-w-xs text-sm text-lavender">
-                  Жми пробел, стрелку вверх или тапни по экрану, чтобы AIdos перепрыгнул вирус
+                  Жми пробел, стрелку вверх или тапни по экрану, чтобы Нейрон перепрыгнул вирус
                 </p>
                 <Button onClick={startGame}>Начать игру</Button>
               </>

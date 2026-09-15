@@ -101,7 +101,7 @@ export default function StudentHomePage() {
               Открой своего помощника
             </p>
             <p className="relative z-10 mt-1 max-w-xs text-center text-sm text-lavender">
-              AIdos будет расти вместе с тобой и меняться с каждым уровнем — но сначала его нужно открыть
+              Нейрон будет расти вместе с тобой и меняться с каждым уровнем — но сначала его нужно открыть
             </p>
             <Button
               className="relative z-10 mt-4"

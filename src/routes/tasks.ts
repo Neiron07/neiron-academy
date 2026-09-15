@@ -119,7 +119,13 @@ export default async function taskRoutes(app: FastifyInstance) {
       [id, body.title ?? null, body.description ?? null, body.status ?? null, body.priority ?? null,
        body.assignee_id ?? null, body.due_at ?? null, body.position ?? null]);
 
-    await audit({ actorId: req.user!.id, action: 'task.update', entity: 'tasks', entityId: id, diff: body });
+    // Чистая перестановка (только position, без смены статуса) — это просто личный
+    // порядок карточек в колонке, не бизнес-действие. Логировать её в журнал незачем:
+    // при активном перетаскивании она забила бы журнал десятками записей «task.update».
+    const isPositionOnlyChange = Object.keys(body).length === 1 && body.position !== undefined;
+    if (!isPositionOnlyChange) {
+      await audit({ actorId: req.user!.id, action: 'task.update', entity: 'tasks', entityId: id, diff: body });
+    }
     return one(`select ${TASK_FIELDS} ${TASK_JOIN} where t.id = $1`, [updated!.id]);
   });
 
