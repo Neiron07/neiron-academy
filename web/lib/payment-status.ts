@@ -21,3 +21,11 @@ export function paymentBadgeClass(days: number): string {
   if (days < 5) return 'border-[#FBBF24] bg-[#FBBF24]/15 text-[#FBBF24]';
   return 'border-purple-mid text-lavender';
 }
+
+/** То же деление на зоны, что и paymentBadgeClass — короткий статус для карточки родителя. */
+export function paymentStatusText(days: number): string {
+  if (days < 0) return 'Просрочено';
+  if (days === 0) return 'Оплата сегодня';
+  if (days < 5) return 'Скоро оплата';
+  return 'Оплачено';
+}

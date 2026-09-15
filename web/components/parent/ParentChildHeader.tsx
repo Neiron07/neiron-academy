@@ -10,6 +10,7 @@ import { useLogout } from '@/lib/use-logout';
 
 const TABS = [
   { id: '', label: 'Сводка' },
+  { id: 'schedule', label: 'Расписание' },
   { id: 'attendance', label: 'Посещаемость' },
   { id: 'feedback', label: 'Обратная связь' },
   { id: 'homework', label: 'Домашки' },

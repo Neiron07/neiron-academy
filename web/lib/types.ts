@@ -417,16 +417,25 @@ export interface LessonBalance {
 }
 
 export interface ParentPaymentsResponse {
+  course_name: string | null;
   payments: Payment[];
   balance: LessonBalance | null;
+  total_paid: number | null;
+  last_payment_at: string | null;
+  last_payment_amount: number | null;
+  next_payment_estimate: string | null;
 }
 
 export interface ParentScheduleItem {
   id: string;
   scheduled_at: string;
+  duration_min: number;
   status: LessonStatus;
   group_name: string;
   room: string | null;
+  course_name: string;
+  teacher_name: string | null;
+  branch_name: string | null;
 }
 
 // -------------------------------------------------------------- админ

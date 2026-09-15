@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { one, query } from '../db.js';
 import { AppError } from '../lib/errors.js';
 import { levelFromXp, LOW_BALANCE_THRESHOLD } from '../lib/rules.js';
+import { estimateNextPayment } from '../lib/payments.js';
 
 /**
  * Родитель видит ТОЛЬКО своих детей. Проверка идёт запросом к parents_students
@@ -135,7 +136,12 @@ export default async function parentRoutes(app: FastifyInstance) {
         order by h.created_at desc limit 50`, [id]);
   });
 
-  /** История оплат и остаток абонемента. */
+  /**
+   * История оплат + карточка «текущий период»: реальный оплаченный период
+   * (от последней оплаты до расчётной даты следующей — так же, как считает
+   * админка) и её ожидаемая сумма (по факту последнего платежа — точных
+   * будущих сумм система не хранит).
+   */
   app.get('/children/:id/payments', { preHandler: parent }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     await assertChild(req.user!.id, id);
@@ -145,19 +151,49 @@ export default async function parentRoutes(app: FastifyInstance) {
          from payments where student_id = $1 order by paid_at desc`, [id]);
     const balance = await one(`select * from v_lesson_balance where student_id = $1`, [id]);
 
-    return { payments, balance };
+    const status = await one<{
+      course_name: string | null; last_payment_at: string | null; last_payment_amount: number | null;
+      lessons_left: number | null; weekly_lessons: number | null; total_paid: number | null;
+    }>(
+      `select c.name as course_name, pay.last_payment_at, pay.last_payment_amount,
+              pay.lessons_left, pay.weekly_lessons, pay.total_paid
+         from v_student_payment_status pay
+    left join enrollments e on e.student_id = pay.student_id and e.status = 'active'
+    left join groups g on g.id = e.group_id
+    left join courses c on c.id = g.course_id
+        where pay.student_id = $1`, [id]);
+
+    return {
+      course_name: status?.course_name ?? null,
+      payments,
+      balance,
+      total_paid: status?.total_paid ?? null,
+      last_payment_at: status?.last_payment_at ?? null,
+      last_payment_amount: status?.last_payment_amount ?? null,
+      next_payment_estimate: estimateNextPayment(
+        status?.last_payment_at ?? null, status?.lessons_left ?? null, status?.weekly_lessons ?? null),
+    };
   });
 
+  /** Ближайшие занятия — с преподавателем, направлением и филиалом, для карточки на главном экране. */
   app.get('/children/:id/schedule', { preHandler: parent }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
     await assertChild(req.user!.id, id);
 
     return query(
-      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room
+      `select l.id, l.scheduled_at, l.duration_min, l.status,
+              g.name as group_name, g.room,
+              c.name as course_name,
+              u.full_name as teacher_name,
+              b.name as branch_name
          from lessons l
          join enrollments e on e.group_id = l.group_id and e.status='active'
          join groups g on g.id = l.group_id
+         join courses c on c.id = g.course_id
+    left join users u on u.id = g.teacher_id
+    left join branches b on b.id = g.branch_id
         where e.student_id = $1 and l.scheduled_at > now() - interval '1 day'
+          and l.status <> 'cancelled'
         order by l.scheduled_at limit 30`, [id]);
   });
 }
