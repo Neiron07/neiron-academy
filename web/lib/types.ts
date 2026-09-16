@@ -124,6 +124,19 @@ export interface ShopResponse {
   items: ShopItem[];
 }
 
+export interface AdminShopItem {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  kind: ShopKind;
+  price_coins: number;
+  cost_kzt: number;
+  stock: number | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
 export interface BuyResponse {
   ok: true;
   order_id: string;
@@ -454,9 +467,21 @@ export interface AdminDashboard {
   }[];
   debtors: { id: string; full_name: string; lessons_left: number }[];
   paymentsDue: PaymentDueRow[];
+  upcomingTrials: AdminUpcomingTrial[];
   totalStudents: number;
   pendingOrders: number;
   newLeads: number;
+}
+
+export interface AdminUpcomingTrial {
+  id: string;
+  title: string;
+  starts_at: string;
+  duration_min: number;
+  room: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  teacher_name: string | null;
 }
 
 export interface ShopReportRow {
@@ -498,6 +523,8 @@ export interface AdminStudentRow {
   xp_total: number;
   /** Заметка админа «для себя» — независимо от реальной истории в payments (last_payment_at ниже). */
   payment_note_at: string | null;
+  /** Плановая дата следующей оплаты — вручную выставляется админом, отдельно от next_payment_estimate. */
+  next_payment_at: string | null;
   group_id: string | null;
   group_name: string | null;
   joined_at: string | null;
@@ -612,6 +639,7 @@ export interface CalendarLesson {
   group_name: string;
   room: string | null;
   course_name: string;
+  teacher_id: string | null;
   teacher_name: string | null;
 }
 

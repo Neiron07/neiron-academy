@@ -31,6 +31,7 @@ export function StudentFormSheet({
   const [birthDate, setBirthDate] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | ''>('');
   const [paymentNoteAt, setPaymentNoteAt] = useState('');
+  const [nextPaymentAt, setNextPaymentAt] = useState('');
   const [branchId, setBranchId] = useState('');
   const [groupId, setGroupId] = useState('');
   const [status, setStatus] = useState<(typeof STATUSES)[number]['id']>('active');
@@ -59,6 +60,7 @@ export function StudentFormSheet({
     setBirthDate(student.birth_date ? almatyDayKey(student.birth_date) : '');
     setGender(student.gender ?? '');
     setPaymentNoteAt(student.payment_note_at ? almatyDayKey(student.payment_note_at) : '');
+    setNextPaymentAt(student.next_payment_at ? almatyDayKey(student.next_payment_at) : '');
     setBranchId(student.branch_id ?? '');
     setGroupId(student.group_id ?? '');
     setStatus((student.status as (typeof STATUSES)[number]['id']) ?? 'active');
@@ -77,6 +79,7 @@ export function StudentFormSheet({
         birth_date: birthDate || null,
         gender: gender || null,
         payment_note_at: paymentNoteAt || null,
+        next_payment_at: nextPaymentAt || null,
         branch_id: branchId || undefined,
         group_id: groupId || null,
         status,
@@ -122,6 +125,13 @@ export function StudentFormSheet({
           value={paymentNoteAt}
           onChange={(e) => setPaymentNoteAt(e.target.value)}
           hint="Просто пометка для себя, не связана с реальной историей платежей"
+        />
+        <Input
+          label="Следующая оплата (необязательно)"
+          type="date"
+          value={nextPaymentAt}
+          onChange={(e) => setNextPaymentAt(e.target.value)}
+          hint="Плановая дата — выставляется вручную, для контроля"
         />
         <label className="block">
           <span className="mb-1.5 block text-sm text-lavender">Филиал</span>

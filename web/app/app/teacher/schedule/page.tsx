@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { weekDays, almatyToday } from '@/lib/calendar';
+import { weekDays, almatyToday, TRIAL_CLASSES } from '@/lib/calendar';
 import { almatyDayKey, formatDate, formatTime, formatWeekday } from '@/lib/format';
 
 type Entry = { time: string } & ({ type: 'lesson'; data: TeacherScheduleItem } | { type: 'event'; data: CalendarEvent });
@@ -109,17 +109,26 @@ export default function TeacherSchedulePage() {
                       </Card>
                     </Link>
                   ) : (
-                    <Card key={entry.data.id} className="flex items-center gap-3 border-purple bg-purple/10">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-purple/20">
+                    <Card
+                      key={entry.data.id}
+                      className={
+                        entry.data.kind === 'trial'
+                          ? `${TRIAL_CLASSES.border} ${TRIAL_CLASSES.bg} flex items-center gap-3`
+                          : 'flex items-center gap-3 border-purple bg-purple/10'
+                      }
+                    >
+                      <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${entry.data.kind === 'trial' ? 'bg-[#FB923C]/20' : 'bg-purple/20'}`}>
                         {entry.data.kind === 'trial' ? (
-                          <Sparkles className="size-4 text-purple" aria-hidden />
+                          <Sparkles className={`size-4 ${TRIAL_CLASSES.text}`} aria-hidden />
                         ) : (
                           <CalendarDays className="size-4 text-purple" aria-hidden />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-white">{entry.data.title}</p>
-                        <p className="text-sm text-lavender">{entry.data.kind === 'trial' ? 'Пробный урок' : 'Событие'}</p>
+                        <p className={`text-sm ${entry.data.kind === 'trial' ? TRIAL_CLASSES.text : 'text-lavender'}`}>
+                          {entry.data.kind === 'trial' ? 'Пробный урок' : 'Событие'}
+                        </p>
                       </div>
                       <span className="text-sm text-white">{formatTime(entry.data.starts_at)}</span>
                     </Card>

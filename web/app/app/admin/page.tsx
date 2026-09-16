@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Phone, AlertTriangle, Wallet } from 'lucide-react';
+import { Phone, AlertTriangle, Wallet, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { AdminDashboard } from '@/lib/types';
 import { Card, InvertCard } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { formatKzt, formatRelativeDateTime } from '@/lib/format';
+import { formatKzt, formatRelativeDateTime, formatDate, formatTime } from '@/lib/format';
 import { paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
+import { TRIAL_CLASSES } from '@/lib/calendar';
 
 export default function AdminDashboardPage() {
   const { data, isLoading } = useQuery({
@@ -30,6 +31,40 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-semibold text-white">Дашборд</h1>
+
+      {data.upcomingTrials.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-lavender">
+              <Sparkles className="size-4" aria-hidden /> Ближайшие пробные уроки
+            </p>
+            <Link href="/app/admin/calendar" className="text-sm text-lavender hover:text-white">
+              Календарь →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {data.upcomingTrials.map((t) => (
+              <Card key={t.id} className={`${TRIAL_CLASSES.border} ${TRIAL_CLASSES.bg}`}>
+                <p className="font-medium text-white">{t.title}</p>
+                <p className={`text-sm ${TRIAL_CLASSES.text}`}>
+                  {formatDate(t.starts_at)} · {formatTime(t.starts_at)}
+                </p>
+                <p className="mt-1 text-sm text-lavender">
+                  {t.teacher_name ?? 'без преподавателя'}
+                  {t.room && ` · ${t.room}`}
+                </p>
+                {(t.contact_name || t.contact_phone) && (
+                  <p className="mt-1 text-xs text-muted">
+                    {t.contact_name}
+                    {t.contact_name && t.contact_phone && ' · '}
+                    {t.contact_phone}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       {data.notClosed.length > 0 && (
         <section>

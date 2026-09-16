@@ -6,6 +6,7 @@ import type { ShopReport } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { CreateShopItemForm } from '@/components/admin/CreateShopItemForm';
+import { ShopItemsList } from '@/components/admin/ShopItemsList';
 import { EmissionChart, CostChart } from '@/components/admin/ShopReportCharts';
 
 export default function AdminShopPage() {
@@ -18,6 +19,7 @@ export default function AdminShopPage() {
     <div>
       <h1 className="mb-4 font-display text-2xl font-semibold text-white">Магазин</h1>
       <CreateShopItemForm />
+      <ShopItemsList />
 
       {isLoading && <SkeletonCard />}
       {data && (

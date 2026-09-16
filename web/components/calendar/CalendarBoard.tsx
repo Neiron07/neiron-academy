@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Plus, BookOpen, Sparkles, CalendarDays, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, BookOpen, Sparkles, CalendarDays, X, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { AdminCalendarResponse, CalendarEvent, CalendarLesson } from '@/lib/types';
-import { weekDays, almatyToday } from '@/lib/calendar';
+import { weekDays, almatyToday, TRIAL_CLASSES } from '@/lib/calendar';
+import { useCurrentUser } from '@/lib/use-current-user';
 import { almatyDayKey, formatTime } from '@/lib/format';
 import { Button } from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -25,7 +26,9 @@ type Entry =
 export function CalendarBoard({ canCancelLessons }: { canCancelLessons: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const { data: me } = useCurrentUser();
   const [offset, setOffset] = useState(0);
+  const [staffFilter, setStaffFilter] = useState<'all' | 'me' | string>('all');
   const [sheet, setSheet] = useState<{ open: boolean; existing: CalendarEvent | null }>({ open: false, existing: null });
   const [cancelLesson, setCancelLesson] = useState<CalendarLesson | null>(null);
 
@@ -37,20 +40,31 @@ export function CalendarBoard({ canCancelLessons }: { canCancelLessons: boolean 
     queryFn: () => api.get<AdminCalendarResponse>(`/admin/calendar?from=${days[0]}&to=${days[6]}`),
   });
 
+  const staffOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of data?.lessons ?? []) if (l.teacher_id && l.teacher_name) map.set(l.teacher_id, l.teacher_name);
+    for (const e of data?.events ?? []) if (e.teacher_id && e.teacher_name) map.set(e.teacher_id, e.teacher_name);
+    return Array.from(map, ([id, full_name]) => ({ id, full_name })).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [data]);
+
+  const activeStaffId = staffFilter === 'me' ? me?.id : staffFilter === 'all' ? null : staffFilter;
+
   const byDay = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const day of days) map.set(day, []);
     for (const l of data?.lessons ?? []) {
+      if (activeStaffId && l.teacher_id !== activeStaffId) continue;
       const key = almatyDayKey(l.scheduled_at);
       map.get(key)?.push({ type: 'lesson', time: l.scheduled_at, data: l });
     }
     for (const e of data?.events ?? []) {
+      if (activeStaffId && e.teacher_id !== activeStaffId) continue;
       const key = almatyDayKey(e.starts_at);
       map.get(key)?.push({ type: 'event', time: e.starts_at, data: e });
     }
     for (const entries of map.values()) entries.sort((a, b) => a.time.localeCompare(b.time));
     return map;
-  }, [data, days]);
+  }, [data, days, activeStaffId]);
 
   const cancelLessonMutation = useMutation({
     mutationFn: (p: { id: string; reason: string }) => api.post(`/lessons/${p.id}/cancel`, { reason: p.reason, by_school: true }),
@@ -67,6 +81,23 @@ export function CalendarBoard({ canCancelLessons }: { canCancelLessons: boolean 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-semibold text-white">Календарь</h1>
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Filter className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+            <select
+              value={staffFilter}
+              onChange={(e) => setStaffFilter(e.target.value)}
+              aria-label="Показать события"
+              className="h-9 rounded-lg border border-purple-mid bg-transparent py-1 pl-9 pr-3 text-sm text-lavender outline-none focus:border-purple"
+            >
+              <option value="all">Все сотрудники</option>
+              {me && <option value="me">Только я</option>}
+              {staffOptions.filter((s) => s.id !== me?.id).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={() => setOffset((o) => o - 1)}
             aria-label="Предыдущая неделя"
@@ -176,20 +207,23 @@ function LessonEntry({ lesson, canCancel, onCancel }: { lesson: CalendarLesson; 
 }
 
 function EventEntry({ event, onClick }: { event: CalendarEvent; onClick: () => void }) {
-  const Icon = event.kind === 'trial' ? Sparkles : CalendarDays;
+  const isTrial = event.kind === 'trial';
+  const Icon = isTrial ? Sparkles : CalendarDays;
   return (
     <button
       onClick={onClick}
-      className="block w-full rounded-xl border border-purple bg-purple/10 p-2 text-left text-xs hover:bg-purple/20"
+      className={`block w-full rounded-xl border p-2 text-left text-xs ${
+        isTrial ? `${TRIAL_CLASSES.border} ${TRIAL_CLASSES.bg} hover:brightness-110` : 'border-purple bg-purple/10 hover:bg-purple/20'
+      }`}
     >
       <div className="flex items-start gap-1.5">
-        <Icon className="mt-0.5 size-3.5 shrink-0 text-purple" aria-hidden />
+        <Icon className={`mt-0.5 size-3.5 shrink-0 ${isTrial ? TRIAL_CLASSES.text : 'text-purple'}`} aria-hidden />
         <div className="min-w-0">
           <p className="font-medium text-white">
             {formatTime(event.starts_at)} · {event.title}
           </p>
-          <p className="truncate text-muted">
-            {event.teacher_name ?? (event.kind === 'trial' ? 'пробный урок' : 'событие')}
+          <p className={`truncate ${isTrial ? TRIAL_CLASSES.text : 'text-muted'}`}>
+            {isTrial ? 'Пробный урок' : (event.teacher_name ?? 'событие')}
             {event.room && ` · ${event.room}`}
           </p>
         </div>

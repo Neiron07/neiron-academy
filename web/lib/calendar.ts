@@ -1,3 +1,11 @@
+/**
+ * Пробный урок должен бросаться в глаза в календаре — сознательное исключение
+ * из фирменной 7-цветной палитры (тот же принцип, что и у payment-status.ts),
+ * яркий и отличный от обычных purple-акцентов событий/уроков.
+ */
+export const TRIAL_COLOR = '#FB923C';
+export const TRIAL_CLASSES = { border: 'border-[#FB923C]', bg: 'bg-[#FB923C]/15', text: 'text-[#FB923C]' };
+
 /** Сегодняшняя дата (YYYY-MM-DD) по календарю Алматы, а не браузера. */
 export function almatyToday(): string {
   return new Intl.DateTimeFormat('en-CA', {

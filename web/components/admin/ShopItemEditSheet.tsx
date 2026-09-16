@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Card } from '@/components/ui/Card';
+import { api, ApiError } from '@/lib/api';
+import type { AdminShopItem } from '@/lib/types';
+import { Sheet } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
@@ -14,43 +15,53 @@ const KINDS = [
   { id: 'privilege', label: 'Привилегия' },
 ] as const;
 
-export function CreateShopItemForm() {
+export function ShopItemEditSheet({ item, onClose }: { item: AdminShopItem | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
+
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [cost, setCost] = useState('0');
   const [stock, setStock] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [kind, setKind] = useState<(typeof KINDS)[number]['id']>('physical');
+  const [isActive, setIsActive] = useState(true);
 
-  const create = useMutation({
+  useEffect(() => {
+    if (!item) return;
+    setTitle(item.title);
+    setPrice(String(item.price_coins));
+    setCost(String(item.cost_kzt));
+    setStock(item.stock === null ? '' : String(item.stock));
+    setImageUrl(item.image_url ?? '');
+    setKind(item.kind);
+    setIsActive(item.is_active);
+  }, [item]);
+
+  const save = useMutation({
     mutationFn: () =>
-      api.post('/admin/shop-items', {
+      api.patch(`/admin/shop-items/${item!.id}`, {
         title: title.trim(),
         kind,
         price_coins: Number(price),
         cost_kzt: Number(cost) || 0,
         stock: stock ? Number(stock) : null,
-        image_url: imageUrl.trim() || undefined,
+        image_url: imageUrl.trim() || null,
+        is_active: isActive,
       }),
     onSuccess: () => {
-      toast('Товар добавлен', 'success');
-      qc.invalidateQueries({ queryKey: ['shop-report'] });
+      toast('Товар обновлён', 'success');
       qc.invalidateQueries({ queryKey: ['admin-shop-items'] });
-      setTitle('');
-      setPrice('');
-      setStock('');
-      setImageUrl('');
+      qc.invalidateQueries({ queryKey: ['shop-report'] });
+      onClose();
     },
-    onError: () => toast('Не удалось добавить товар', 'error'),
+    onError: (e) => toast(e instanceof ApiError ? e.message : 'Не удалось сохранить товар', 'error'),
   });
 
   return (
-    <Card className="mb-6 max-w-md">
-      <p className="mb-3 font-medium text-white">Новый товар</p>
+    <Sheet open={!!item} onClose={onClose} title="Редактировать товар">
       <div className="space-y-3">
-        <Input label="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input label="Название" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         <div className="flex gap-2">
           {KINDS.map((k) => (
             <button
@@ -78,10 +89,29 @@ export function CreateShopItemForm() {
           onChange={(e) => setImageUrl(e.target.value)}
           placeholder="https://..."
         />
-        <Button fullWidth disabled={!title.trim() || !price} loading={create.isPending} onClick={() => create.mutate()}>
-          Добавить
+        {imageUrl.trim() && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl.trim()} alt="" className="h-24 w-24 rounded-xl border border-purple-mid object-cover" />
+        )}
+        <label className="flex items-center gap-2 text-sm text-lavender">
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+            className="size-4 rounded border-purple-mid accent-purple"
+          />
+          Активен (виден ученикам в магазине)
+        </label>
+        <Button
+          fullWidth
+          size="lg"
+          disabled={!title.trim() || !price}
+          loading={save.isPending}
+          onClick={() => save.mutate()}
+        >
+          Сохранить
         </Button>
       </div>
-    </Card>
+    </Sheet>
   );
 }

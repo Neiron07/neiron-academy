@@ -16,7 +16,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // =================================================== ДАШБОРД
   app.get('/dashboard', { preHandler: admin }, async () => {
-    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads, totalStudents, paymentRows] =
+    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads, totalStudents, paymentRows, upcomingTrials] =
       await Promise.all([
         one(`select count(*) filter (where status='completed')::int as completed,
                     count(*) filter (where status='planned')::int   as planned
@@ -53,6 +53,13 @@ export default async function adminRoutes(app: FastifyInstance) {
                       pay.lessons_left, pay.weekly_lessons
                  from users u join v_student_payment_status pay on pay.student_id = u.id
                 where u.role='student' and u.is_active and pay.last_payment_at is not null`),
+
+        query(`select e.id, e.title, e.starts_at, e.duration_min, e.room,
+                      e.contact_name, e.contact_phone, u.full_name as teacher_name
+                 from calendar_events e
+            left join users u on u.id = e.teacher_id
+                where e.kind = 'trial' and e.starts_at > now()
+                order by e.starts_at limit 10`),
       ]);
 
     const debtors = await query(
@@ -74,7 +81,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       .slice(0, 20);
 
     return {
-      lessonsToday, notClosed, groups, money, atRisk, debtors, paymentsDue,
+      lessonsToday, notClosed, groups, money, atRisk, debtors, paymentsDue, upcomingTrials,
       totalStudents: totalStudents?.cnt ?? 0,
       pendingOrders: pendingOrders?.cnt ?? 0,
       newLeads: newLeads?.cnt ?? 0,
@@ -184,6 +191,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       `select u.id, u.full_name, u.login, u.is_active, u.branch_id, u.created_at,
               b.name as branch_name,
               s.status, s.birth_date, s.gender, s.coins_balance, s.xp_total, s.payment_note_at,
+              s.next_payment_at,
               g.id as group_id, g.name as group_name, e.joined_at,
               pay.lessons_left, pay.weekly_lessons,
               pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
@@ -222,6 +230,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       status: z.enum(['active', 'paused', 'left']).optional(),
       group_id: z.string().uuid().nullable().optional(),
       payment_note_at: z.string().nullable().optional(),
+      next_payment_at: z.string().nullable().optional(),
       parent: z.object({
         full_name: z.string().min(2),
         phone: z.string(),
@@ -250,6 +259,9 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
       if (body.payment_note_at !== undefined) {
         await c.query(`update students set payment_note_at=$2 where user_id=$1`, [id, body.payment_note_at]);
+      }
+      if (body.next_payment_at !== undefined) {
+        await c.query(`update students set next_payment_at=$2 where user_id=$1`, [id, body.next_payment_at]);
       }
       if (body.status !== undefined) {
         await c.query(`update students set status=$2::enroll_status where user_id=$1`, [id, body.status]);
@@ -716,6 +728,13 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   // =================================================== МАГАЗИН
+  /** Все товары, включая неактивные и с нулевым остатком — для админ-списка с редактированием. */
+  app.get('/shop-items', { preHandler: admin }, async () => {
+    return query(
+      `select id, title, description, image_url, kind, price_coins, cost_kzt, stock, is_active, sort_order
+         from shop_items order by sort_order, title`);
+  });
+
   app.post('/shop-items', { preHandler: admin }, async (req) => {
     const body = z.object({
       title: z.string().min(2),
@@ -733,6 +752,44 @@ export default async function adminRoutes(app: FastifyInstance) {
       [config.BRANCH_ID, body.title, body.description ?? null, body.image_url ?? null,
        body.kind, body.price_coins, body.cost_kzt, body.stock]);
     await audit({ actorId: req.user!.id, action: 'shop_item.create', entity: 'shop_items', entityId: item!.id, diff: { title: body.title, price_coins: body.price_coins } });
+    return item;
+  });
+
+  app.patch('/shop-items/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const body = z.object({
+      title: z.string().min(2).optional(),
+      description: z.string().nullable().optional(),
+      image_url: z.string().url().nullable().optional(),
+      kind: z.enum(['physical', 'virtual', 'privilege']).optional(),
+      price_coins: z.number().int().positive().optional(),
+      cost_kzt: z.number().int().min(0).optional(),
+      stock: z.number().int().min(0).nullable().optional(),
+      is_active: z.boolean().optional(),
+    }).parse(req.body);
+
+    const existing = await one<{ id: string }>(`select id from shop_items where id=$1`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Товар не найден');
+
+    const item = await one(
+      `update shop_items set
+         title = coalesce($2, title),
+         description = case when $3::text is not null or $4 then $3 else description end,
+         image_url = case when $5::text is not null or $6 then $5 else image_url end,
+         kind = coalesce($7, kind),
+         price_coins = coalesce($8, price_coins),
+         cost_kzt = coalesce($9, cost_kzt),
+         stock = case when $10::int is not null or $11 then $10 else stock end,
+         is_active = coalesce($12, is_active)
+       where id = $1 returning *`,
+      [id, body.title ?? null,
+       body.description ?? null, 'description' in body,
+       body.image_url ?? null, 'image_url' in body,
+       body.kind ?? null, body.price_coins ?? null, body.cost_kzt ?? null,
+       body.stock ?? null, 'stock' in body,
+       body.is_active ?? null]);
+
+    await audit({ actorId: req.user!.id, action: 'shop_item.update', entity: 'shop_items', entityId: id, diff: body });
     return item;
   });
 
@@ -804,7 +861,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       `select l.id, l.scheduled_at, l.duration_min, l.status,
               g.id as group_id, g.name as group_name, g.room,
               c.name as course_name,
-              u.full_name as teacher_name
+              g.teacher_id, u.full_name as teacher_name
          from lessons l
          join groups g on g.id = l.group_id
          join courses c on c.id = g.course_id

@@ -98,7 +98,8 @@ function StudentsContent() {
                 <th className="px-4 py-3 font-medium">Всего оплачено</th>
                 <th className="px-4 py-3 font-medium">Посл. оплата</th>
                 <th className="px-4 py-3 font-medium">Оплата (заметка)</th>
-                <th className="px-4 py-3 font-medium">След. оплата</th>
+                <th className="px-4 py-3 font-medium">След. оплата (оценка)</th>
+                <th className="px-4 py-3 font-medium">След. оплата (план)</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -106,6 +107,7 @@ function StudentsContent() {
               {data.map((s) => {
                 const primaryParent = s.parents[0];
                 const days = s.next_payment_estimate ? daysUntil(s.next_payment_estimate) : null;
+                const plannedDays = s.next_payment_at ? daysUntil(s.next_payment_at) : null;
                 return (
                   <tr key={s.id} className={`border-b border-purple-mid/40 last:border-0 ${!s.is_active ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3">
@@ -157,6 +159,18 @@ function StudentsContent() {
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(days)}`}>
                           {paymentLabel(days)}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {plannedDays === null ? (
+                        <span className="text-lavender">—</span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-white">{formatDate(s.next_payment_at!)}</span>
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(plannedDays)}`}>
+                            {paymentLabel(plannedDays)}
+                          </span>
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
