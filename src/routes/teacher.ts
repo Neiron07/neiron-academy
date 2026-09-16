@@ -25,6 +25,7 @@ export default async function teacherRoutes(app: FastifyInstance) {
          left join topics t on t.id = coalesce(l.topic_id, g.current_topic_id)
         where l.scheduled_at::date = (now() at time zone 'Asia/Almaty')::date
           and l.status <> 'cancelled'
+          and g.status = 'active'
           and ($1 or g.teacher_id = $2)
         order by l.scheduled_at`,
       [isAdmin, req.user!.id]);
@@ -36,6 +37,7 @@ export default async function teacherRoutes(app: FastifyInstance) {
         where l.status = 'planned'
           and l.scheduled_at < now() - interval '2 hours'
           and l.scheduled_at > now() - interval '14 days'
+          and g.status = 'active'
           and ($1 or g.teacher_id = $2)
         order by l.scheduled_at`,
       [isAdmin, req.user!.id]);
@@ -45,6 +47,7 @@ export default async function teacherRoutes(app: FastifyInstance) {
           `select l.id, l.scheduled_at, g.name as group_name, c.name as course_name
              from lessons l join groups g on g.id = l.group_id join courses c on c.id = g.course_id
             where l.scheduled_at > now() and l.status = 'planned'
+              and g.status = 'active'
               and ($1 or g.teacher_id = $2)
             order by l.scheduled_at limit 10`, [isAdmin, req.user!.id])
       : [];
@@ -76,6 +79,7 @@ export default async function teacherRoutes(app: FastifyInstance) {
       `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, c.name as course_name
          from lessons l join groups g on g.id = l.group_id join courses c on c.id = g.course_id
         where l.scheduled_at::date between $1 and $2
+          and g.status = 'active'
           and ($3 or g.teacher_id = $4)
         order by l.scheduled_at`,
       [from, to, isAdmin, req.user!.id]);

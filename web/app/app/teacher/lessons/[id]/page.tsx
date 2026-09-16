@@ -1,11 +1,12 @@
 'use client';
 
 import { use, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Coins, Check, MessageSquareHeart } from 'lucide-react';
+import { Coins, Check, MessageSquareHeart, CheckCircle2, Circle, ClipboardList } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import type { AttendanceStatus, LessonDetail, LessonFeedbackItem } from '@/lib/types';
+import type { AttendanceStatus, HomeworkListItem, LessonDetail, LessonFeedbackItem } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { ManualCoinsSheet } from '@/components/teacher/ManualCoinsSheet';
 import { LessonFeedbackSheet, type FeedbackDraftItem } from '@/components/teacher/LessonFeedbackSheet';
 import { ATTENDANCE_LABEL, ERROR_HINTS } from '@/lib/constants';
-import { formatRelativeDateTime } from '@/lib/format';
+import { almatyDayKey, formatRelativeDateTime } from '@/lib/format';
 
 const STATUS_ORDER: AttendanceStatus[] = ['present', 'late', 'excused', 'absent'];
 
@@ -33,6 +34,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   const { data: existingFeedback } = useQuery({
     queryKey: ['lesson-feedback', id],
     queryFn: () => api.get<LessonFeedbackItem[]>(`/lessons/${id}/feedback`),
+  });
+
+  const { data: groupHomework } = useQuery({
+    queryKey: ['homework', data?.lesson.group_id],
+    queryFn: () => api.get<HomeworkListItem[]>(`/homework?group_id=${data!.lesson.group_id}`),
+    enabled: !!data,
   });
 
   const [marks, setMarks] = useState<Record<string, AttendanceStatus | null>>({});
@@ -136,11 +143,43 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 
   const remaining = data.manual.limit - manualUsed;
   const hasFeedback = (existingFeedback?.length ?? 0) > 0;
+  const attendanceDone = data.lesson.status === 'completed';
+  // Сравниваем по календарному дню (Алматы), а не по точной метке времени: домашка,
+  // заданная в тот же день чуть ДО начала урока (частый сценарий), всё равно считается.
+  const homeworkDone = (groupHomework ?? []).some(
+    (h) => h.group_id === data.lesson.group_id && almatyDayKey(h.created_at) >= almatyDayKey(data.lesson.scheduled_at),
+  );
 
   return (
     <>
       <TopBar title={data.lesson.group_name} />
       <p className="-mt-3 mb-4 text-sm text-lavender">{formatRelativeDateTime(data.lesson.scheduled_at)}</p>
+
+      <Card className="mb-4">
+        <p className="mb-2.5 flex items-center gap-1.5 text-sm font-medium text-lavender">
+          <ClipboardList className="size-4" aria-hidden /> Чек-лист урока
+        </p>
+        <div className="space-y-2">
+          <ChecklistRow done={attendanceDone} label="Посещаемость отмечена" />
+          <ChecklistRow done={hasFeedback} label="Обратная связь дана">
+            {!hasFeedback && (
+              <button
+                onClick={() => { setFeedbackAutoFlow(false); setShowFeedback(true); }}
+                className="text-xs text-purple hover:underline"
+              >
+                Дать сейчас
+              </button>
+            )}
+          </ChecklistRow>
+          <ChecklistRow done={homeworkDone} label="Домашка задана">
+            {!homeworkDone && (
+              <Link href={`/app/teacher/homework/new?groupId=${data.lesson.group_id}`} className="text-xs text-purple hover:underline">
+                Задать
+              </Link>
+            )}
+          </ChecklistRow>
+        </div>
+      </Card>
 
       {data.lesson.status === 'completed' && (
         <Card className="mb-4 flex items-center justify-between gap-2 text-sm text-lavender">
@@ -269,4 +308,20 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
 function hintFor(e: unknown): string {
   if (e instanceof ApiError) return ERROR_HINTS[e.code] ?? e.message;
   return 'Что-то пошло не так';
+}
+
+function ChecklistRow({ done, label, children }: { done: boolean; label: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <span className="flex items-center gap-2">
+        {done ? (
+          <CheckCircle2 className="size-4 shrink-0 text-purple" aria-hidden />
+        ) : (
+          <Circle className="size-4 shrink-0 text-muted" aria-hidden />
+        )}
+        <span className={done ? 'text-lavender line-through decoration-muted' : 'text-white'}>{label}</span>
+      </span>
+      {children}
+    </div>
+  );
 }

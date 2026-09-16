@@ -1,8 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ChevronRight, MapPin, Sparkles, CalendarDays, CalendarCheck2 } from 'lucide-react';
+import { AlertTriangle, ChevronRight, MapPin, Sparkles, CalendarDays, CalendarCheck2, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { TeacherTodayResponse } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
@@ -10,14 +11,18 @@ import { SkeletonRow } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { InvertCard, Card } from '@/components/ui/Card';
 import { formatRelativeDateTime, formatTime, formatDate, formatWeekday } from '@/lib/format';
+import { useCurrentUser } from '@/lib/use-current-user';
+import { getTeacherDailyMessage } from '@/lib/motivational-messages';
 
 export default function TeacherTodayPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['teacher-today'],
     queryFn: () => api.get<TeacherTodayResponse>('/teacher/today'),
   });
+  const { data: me } = useCurrentUser();
 
   const today = new Date().toISOString();
+  const message = useMemo(() => getTeacherDailyMessage(me?.id), [me?.id]);
 
   return (
     <>
@@ -25,6 +30,16 @@ export default function TeacherTodayPage() {
       <p className="-mt-3 mb-5 text-sm capitalize text-lavender">
         {formatWeekday(today)}, {formatDate(today)}
       </p>
+
+      <Card className="mb-5 border-purple bg-purple/10">
+        <div className="flex items-start gap-2.5">
+          <Mail className="mt-0.5 size-5 shrink-0 text-purple" aria-hidden />
+          <div>
+            <p className="text-sm font-medium text-lavender">Письмо дня</p>
+            <p className="mt-1 text-white">{message}</p>
+          </div>
+        </div>
+      </Card>
 
       {isLoading && (
         <div className="space-y-3">

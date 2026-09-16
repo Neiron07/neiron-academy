@@ -7,6 +7,20 @@ import { applyCoins } from '../lib/coins.js';
 import { audit } from '../lib/audit.js';
 import { estimateNextPayment } from '../lib/payments.js';
 import { config } from '../config.js';
+import type pg from 'pg';
+
+/**
+ * Архивация группы не должна оставлять «зависшие» planned-уроки — иначе они
+ * бесконечно висят в «Незакрытые уроки» у препода и в дашборде, требуя
+ * отметки для группы, которой больше нет. Без компенсации коинами: это не
+ * отмена урока школой в последний момент, а закрытие группы.
+ */
+async function cancelPlannedLessons(c: pg.PoolClient, groupId: string) {
+  await c.query(
+    `update lessons set status='cancelled', cancel_reason='Группа архивирована', cancelled_by_school=true
+      where group_id=$1 and status='planned'`,
+    [groupId]);
+}
 
 export default async function adminRoutes(app: FastifyInstance) {
   const admin = app.auth(['admin']);
@@ -28,6 +42,7 @@ export default async function adminRoutes(app: FastifyInstance) {
             left join users u on u.id = g.teacher_id
                 where l.status='planned' and l.scheduled_at < now() - interval '2 hours'
                   and l.scheduled_at > now() - interval '14 days'
+                  and g.status = 'active'
                 order by l.scheduled_at`),
 
         query(`select g.id, g.name, g.capacity, c.name as course_name,
@@ -544,17 +559,21 @@ export default async function adminRoutes(app: FastifyInstance) {
     const existing = await one<{ id: string }>(`select id from groups where id=$1`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'Группа не найдена');
 
-    const updated = await one(
-      `update groups set
-         name = coalesce($2, name),
-         room = coalesce($3, room),
-         capacity = coalesce($4, capacity),
-         teacher_id = coalesce($5, teacher_id),
-         branch_id = coalesce($6, branch_id),
-         status = coalesce($7, status)::group_status
-       where id = $1 returning *`,
-      [id, body.name ?? null, body.room ?? null, body.capacity ?? null,
-       body.teacher_id ?? null, body.branch_id ?? null, body.status ?? null]);
+    const updated = await tx(async (c) => {
+      const res = await c.query(
+        `update groups set
+           name = coalesce($2, name),
+           room = coalesce($3, room),
+           capacity = coalesce($4, capacity),
+           teacher_id = coalesce($5, teacher_id),
+           branch_id = coalesce($6, branch_id),
+           status = coalesce($7, status)::group_status
+         where id = $1 returning *`,
+        [id, body.name ?? null, body.room ?? null, body.capacity ?? null,
+         body.teacher_id ?? null, body.branch_id ?? null, body.status ?? null]);
+      if (body.status === 'archived') await cancelPlannedLessons(c, id);
+      return res.rows[0];
+    });
 
     await audit({ actorId: req.user!.id, action: 'group.update', entity: 'groups', entityId: id, diff: body });
     return updated;
@@ -573,7 +592,10 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const hasLessons = await one(`select 1 from lessons where group_id=$1 limit 1`, [id]);
     if (hasLessons) {
-      await query(`update groups set status='archived' where id=$1`, [id]);
+      await tx(async (c) => {
+        await c.query(`update groups set status='archived' where id=$1`, [id]);
+        await cancelPlannedLessons(c, id);
+      });
       await audit({ actorId: req.user!.id, action: 'group.archive', entity: 'groups', entityId: id });
       return { ok: true, archived: true };
     }

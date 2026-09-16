@@ -35,6 +35,39 @@ export function DinoCover() {
   );
 }
 
+export function Game2048Cover() {
+  const tiles = [
+    { x: 8, y: 8, v: 2, bg: '#301B58' },
+    { x: 46, y: 8, v: 8, bg: '#4A2989' },
+    { x: 84, y: 8, v: 4, bg: '#3D2270' },
+    { x: 122, y: 8, v: 32, bg: '#7444D4' },
+    { x: 8, y: 46, v: 16, bg: '#5A36A2' },
+    { x: 46, y: 46, v: 128, bg: '#8B5CE0' },
+    { x: 84, y: 46, v: 2048, bg: '#F8F7F9' },
+    { x: 122, y: 46, v: 4, bg: '#3D2270' },
+  ];
+  return (
+    <svg viewBox="0 0 160 100" className="h-full w-full">
+      <rect width="160" height="100" fill="#150930" />
+      {tiles.map((t, i) => (
+        <g key={i}>
+          <rect x={t.x} y={t.y} width="30" height="30" rx="6" fill={t.bg} />
+          <text
+            x={t.x + 15}
+            y={t.y + 20}
+            textAnchor="middle"
+            fontSize={t.v >= 1000 ? 10 : 13}
+            fontWeight="700"
+            fill={t.v >= 256 ? '#150930' : '#F8F7F9'}
+          >
+            {t.v}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function FlappyCover() {
   return (
     <svg viewBox="0 0 160 100" className="h-full w-full">

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
-import { DinoCover, FlappyCover } from '@/components/games/GameCovers';
+import { DinoCover, FlappyCover, Game2048Cover } from '@/components/games/GameCovers';
 
 const GAMES = [
   {
@@ -18,6 +18,12 @@ const GAMES = [
     title: 'Нейрон-полёт',
     description: 'Пролети между труб как можно дальше — классика с Нейроном',
     cover: FlappyCover,
+  },
+  {
+    href: '/app/student/games/2048',
+    title: '2048',
+    description: 'Собирай одинаковые плитки — играй сколько угодно, без ограничений',
+    cover: Game2048Cover,
   },
 ];
 
