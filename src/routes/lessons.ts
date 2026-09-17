@@ -12,9 +12,9 @@ import { audit } from '../lib/audit.js';
 async function assertLessonAccess(lessonId: string, user: { id: string; role: string }) {
   const lesson = await one<{
     id: string; group_id: string; teacher_id: string; status: string;
-    scheduled_at: string; group_name: string; course_id: string;
+    scheduled_at: string; group_name: string; course_id: string; topic_text: string | null;
   }>(
-    `select l.id, l.group_id, l.status, l.scheduled_at,
+    `select l.id, l.group_id, l.status, l.scheduled_at, l.topic_text,
             g.teacher_id, g.name as group_name, g.course_id
        from lessons l join groups g on g.id = l.group_id
       where l.id = $1`, [lessonId]);
@@ -54,12 +54,6 @@ export default async function lessonRoutes(app: FastifyInstance) {
         order by u.full_name`,
       [id, lesson.group_id]);
 
-    const topics = await query(
-      `select t.id, t.title, m.title as module_title, m.sort_order as m_order, t.sort_order
-         from topics t join modules m on m.id = t.module_id
-        where m.course_id = $1
-        order by m.sort_order, t.sort_order`, [lesson.course_id]);
-
     const manualUsed = await one<{ used: string }>(
       `select coalesce(sum(coins),0)::text as used from coin_transactions
         where lesson_id = $1 and reason_code = 'manual'`, [id]);
@@ -67,9 +61,9 @@ export default async function lessonRoutes(app: FastifyInstance) {
     return {
       lesson: {
         id: lesson.id, group_id: lesson.group_id, group_name: lesson.group_name,
-        scheduled_at: lesson.scheduled_at, status: lesson.status,
+        scheduled_at: lesson.scheduled_at, status: lesson.status, topic_text: lesson.topic_text,
       },
-      roster, topics,
+      roster,
       manual: {
         used: Number(manualUsed?.used ?? 0),
         limit: 30,
@@ -147,10 +141,18 @@ export default async function lessonRoutes(app: FastifyInstance) {
   // ---------------------------------------------------- завершить урок
   app.post('/:id/complete', { preHandler: staff }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
-    const body = z.object({ topic_id: z.string().uuid().optional() }).parse(req.body ?? {});
+    const body = z.object({ topic_text: z.string().trim().min(2).max(200).optional() }).parse(req.body ?? {});
 
     const lesson = await assertLessonAccess(id, req.user!);
-    if (lesson.status === 'completed') return { ok: true, alreadyCompleted: true };
+    if (lesson.status === 'completed') {
+      // Урок уже завершён — только тема может ещё редактироваться (форма на
+      // фронте остаётся открытой для правок), остальное (стрики/ачивки) не
+      // пересчитываем повторно.
+      if (body.topic_text) {
+        await query(`update lessons set topic_text = $2 where id = $1`, [id, body.topic_text]);
+      }
+      return { ok: true, alreadyCompleted: true };
+    }
 
     const marked = await one<{ cnt: string }>(
       `select count(*)::text as cnt from attendance where lesson_id = $1`, [id]);
@@ -168,16 +170,16 @@ export default async function lessonRoutes(app: FastifyInstance) {
         'Сначала отметьте посещаемость по всем ученикам группы');
     }
 
-    await tx(async (c) => {
-      await c.query(
-        `update lessons set status='completed', completed_at=now(), completed_by=$2,
-                topic_id = coalesce($3, topic_id)
-          where id = $1`, [id, req.user!.id, body.topic_id ?? null]);
-      if (body.topic_id) {
-        await c.query(`update groups set current_topic_id = $2 where id = $1`,
-          [lesson.group_id, body.topic_id]);
-      }
-    });
+    // Тема обязательна при первом завершении — чтобы у ученика и родителя
+    // всегда было видно, что реально прошли на уроке.
+    if (!body.topic_text && !lesson.topic_text) {
+      throw new AppError(400, 'TOPIC_REQUIRED', 'Укажите тему урока перед завершением');
+    }
+
+    await query(
+      `update lessons set status='completed', completed_at=now(), completed_by=$2,
+              topic_text = coalesce($3, topic_text)
+        where id = $1`, [id, req.user!.id, body.topic_text ?? null]);
 
     // Стрики и ачивки считаем только после того, как урок стал completed.
     const students = await query<{ student_id: string; status: string }>(

@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
 import { one, query } from '../db.js';
 import { flushNotifications, enqueueNotification } from '../integrations/whatsapp.js';
+import { flushTelegramNotifications, enqueueTelegramNotification } from '../integrations/telegram.js';
 import { grantAchievement } from '../lib/achievements.js';
 import { LOW_BALANCE_THRESHOLD } from '../lib/rules.js';
 import { estimateNextPayment } from '../lib/payments.js';
@@ -19,6 +20,64 @@ export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: 
   // Очередь уведомлений — каждую минуту
   jobs.push(new Cron('* * * * *', { timezone: TZ }, async () => {
     try { await flushNotifications(20); } catch (e) { log.error(e); }
+    try { await flushTelegramNotifications(20); } catch (e) { log.error(e); }
+  }));
+
+  // Напоминания персоналу в Telegram — пробные/события и обычные уроки за
+  // ~час до начала, чтобы менеджер мог проконтролировать и подтолкнуть препода.
+  // Окно (50–70 мин) шире шага крона (15 мин) намеренно — dedupe_key защищает
+  // от повторной отправки того же урока/события на соседнем тике.
+  jobs.push(new Cron('*/15 * * * *', { timezone: TZ }, async () => {
+    const events = await query<{
+      id: string; kind: 'trial' | 'event'; title: string; starts_at: string;
+      room: string | null; contact_name: string | null; contact_phone: string | null;
+      teacher_name: string | null; branch_name: string | null;
+    }>(
+      `select e.id, e.kind, e.title, e.starts_at, e.room, e.contact_name, e.contact_phone,
+              u.full_name as teacher_name, b.name as branch_name
+         from calendar_events e
+    left join users u on u.id = e.teacher_id
+    left join branches b on b.id = e.branch_id
+        where e.starts_at between now() + interval '50 minutes' and now() + interval '70 minutes'`);
+
+    for (const e of events) {
+      const time = new Date(e.starts_at).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+      const location = [e.branch_name, e.room].filter(Boolean).join(', ');
+      const lines = [
+        `${e.kind === 'trial' ? '🎓 Пробный урок' : '📌 Событие'} через час — «${e.title}»`,
+        `🕐 ${time}`,
+        e.teacher_name ? `👨‍🏫 ${e.teacher_name}` : '👨‍🏫 преподаватель не назначен',
+        location && `📍 ${location}`,
+        e.contact_name ? `👤 ${[e.contact_name, e.contact_phone].filter(Boolean).join(' · ')}` : null,
+      ].filter(Boolean);
+      await enqueueTelegramNotification({ body: lines.join('\n'), dedupeKey: `tg:event:${e.id}` });
+    }
+
+    const lessons = await query<{
+      id: string; scheduled_at: string; group_name: string; room: string | null;
+      course_name: string; teacher_name: string | null; branch_name: string | null;
+    }>(
+      `select l.id, l.scheduled_at, g.name as group_name, g.room, c.name as course_name,
+              u.full_name as teacher_name, b.name as branch_name
+         from lessons l
+         join groups g on g.id = l.group_id
+         join courses c on c.id = g.course_id
+    left join users u on u.id = g.teacher_id
+    left join branches b on b.id = g.branch_id
+        where l.status = 'planned' and g.status = 'active'
+          and l.scheduled_at between now() + interval '50 minutes' and now() + interval '70 minutes'`);
+
+    for (const l of lessons) {
+      const time = new Date(l.scheduled_at).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+      const location = [l.branch_name, l.room].filter(Boolean).join(', ');
+      const lines = [
+        `📚 Урок через час — ${l.group_name} (${l.course_name})`,
+        `🕐 ${time}`,
+        l.teacher_name ? `👨‍🏫 ${l.teacher_name}` : '👨‍🏫 преподаватель не назначен',
+        location && `📍 ${location}`,
+      ].filter(Boolean);
+      await enqueueTelegramNotification({ body: lines.join('\n'), dedupeKey: `tg:lesson:${l.id}` });
+    }
   }));
 
   // Напоминание об уроке — каждые 15 минут, за 2 часа до занятия

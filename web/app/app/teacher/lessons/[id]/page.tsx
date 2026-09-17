@@ -10,6 +10,7 @@ import type { AttendanceStatus, HomeworkListItem, LessonDetail, LessonFeedbackIt
 import { TopBar } from '@/components/layout/TopBar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { ManualCoinsSheet } from '@/components/teacher/ManualCoinsSheet';
@@ -43,7 +44,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   });
 
   const [marks, setMarks] = useState<Record<string, AttendanceStatus | null>>({});
-  const [topicId, setTopicId] = useState('');
+  const [topicText, setTopicText] = useState('');
   const [manualFor, setManualFor] = useState<string | null>(null);
   const [manualUsed, setManualUsed] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -65,6 +66,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       initial[s.student_id] = draft[s.student_id] ?? s.attendance_status ?? null;
     }
     setMarks(initial);
+    setTopicText(data.lesson.topic_text ?? '');
   }, [data, draftKey]);
 
   useEffect(() => {
@@ -100,9 +102,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   }
 
   const allMarked = data ? data.roster.every((s) => marks[s.student_id]) : false;
+  // Тема обязательна только при первом завершении — у уже проведённых уроков
+  // без темы (старые записи до этой фичи) редактирование посещаемости не блокируем.
+  const canComplete = allMarked && (data?.lesson.status === 'completed' || topicText.trim().length >= 2);
 
   async function complete() {
-    if (!data || !allMarked) return;
+    if (!data || !canComplete) return;
     setCompleting(true);
     try {
       // Пустой ростер (группа без активных учеников) — бэкенд требует непустой
@@ -111,7 +116,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         const items = data.roster.map((s) => ({ student_id: s.student_id, status: marks[s.student_id] as AttendanceStatus }));
         await api.post(`/lessons/${id}/attendance`, { items });
       }
-      await api.post(`/lessons/${id}/complete`, topicId ? { topic_id: topicId } : {});
+      await api.post(`/lessons/${id}/complete`, topicText.trim() ? { topic_text: topicText.trim() } : {});
       sessionStorage.removeItem(draftKey);
       qc.invalidateQueries({ queryKey: ['lesson', id] });
       toast('Урок завершён', 'success');
@@ -144,6 +149,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   const remaining = data.manual.limit - manualUsed;
   const hasFeedback = (existingFeedback?.length ?? 0) > 0;
   const attendanceDone = data.lesson.status === 'completed';
+  const topicDone = !!data.lesson.topic_text;
   // Сравниваем по календарному дню (Алматы), а не по точной метке времени: домашка,
   // заданная в тот же день чуть ДО начала урока (частый сценарий), всё равно считается.
   const homeworkDone = (groupHomework ?? []).some(
@@ -161,6 +167,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         </p>
         <div className="space-y-2">
           <ChecklistRow done={attendanceDone} label="Посещаемость отмечена" />
+          <ChecklistRow done={topicDone} label="Тема урока указана" />
           <ChecklistRow done={hasFeedback} label="Обратная связь дана">
             {!hasFeedback && (
               <button
@@ -245,33 +252,28 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         ))}
       </div>
 
-      {data.topics.length > 0 && (
-        <div className="mt-5">
-          <p className="mb-1.5 text-sm text-lavender">Пройденная тема</p>
-          <select
-            value={topicId}
-            onChange={(e) => setTopicId(e.target.value)}
-            className="h-11 w-full rounded-xl border border-purple-mid bg-purple-deep px-3 text-white outline-none focus:border-purple"
-          >
-            <option value="">Не выбрана</option>
-            {data.topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.module_title} · {t.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="mt-5">
+        <Input
+          label={`Тема урока${data.lesson.status !== 'completed' ? ' *' : ''}`}
+          value={topicText}
+          onChange={(e) => setTopicText(e.target.value)}
+          placeholder="Например: Циклы и условия"
+          hint="Видна ученику и родителю в расписании"
+        />
+      </div>
 
       <div className={data.lesson.status === 'completed' ? 'mt-5' : 'sticky bottom-24 mt-5'}>
         {!allMarked && data.lesson.status !== 'completed' && (
           <p className="mb-2 text-center text-sm text-muted">Отметьте всех, чтобы завершить урок</p>
         )}
+        {allMarked && topicText.trim().length < 2 && data.lesson.status !== 'completed' && (
+          <p className="mb-2 text-center text-sm text-muted">Укажите тему урока, чтобы завершить</p>
+        )}
         <Button
           fullWidth
           size={data.lesson.status === 'completed' ? 'md' : 'lg'}
           variant={data.lesson.status === 'completed' ? 'secondary' : 'primary'}
-          disabled={!allMarked}
+          disabled={!canComplete}
           loading={completing}
           onClick={complete}
         >

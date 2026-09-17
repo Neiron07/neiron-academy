@@ -126,12 +126,18 @@ export default function StudentHomePage() {
       </div>
 
       {data.nextLesson && (
-        <Card className="mb-3">
-          <p className="text-sm text-lavender">Ближайший урок</p>
-          <p className="font-medium text-white">
-            {data.group?.name} · {formatRelativeDateTime(data.nextLesson.scheduled_at)}
-          </p>
-        </Card>
+        <Link href="/app/student/schedule">
+          <Card className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-lavender">Ближайший урок</p>
+              <p className="font-medium text-white">
+                {data.group?.name} · {formatRelativeDateTime(data.nextLesson.scheduled_at)}
+              </p>
+              {data.nextLesson.topic && <p className="mt-0.5 truncate text-sm text-lavender">{data.nextLesson.topic}</p>}
+            </div>
+            <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
+          </Card>
+        </Link>
       )}
 
       {data.pendingHomeworkCount > 0 && (

@@ -39,7 +39,7 @@ export default async function studentRoutes(app: FastifyInstance) {
         order by sort_order`, [id]);
 
     const nextLesson = await one(
-      `select l.id, l.scheduled_at, g.name as group_name
+      `select l.id, l.scheduled_at, g.name as group_name, l.topic_text as topic
          from lessons l join groups g on g.id = l.group_id
          join enrollments e on e.group_id = g.id and e.status='active'
         where e.student_id = $1 and l.scheduled_at > now() and l.status='planned'
@@ -146,11 +146,10 @@ export default async function studentRoutes(app: FastifyInstance) {
   /** Расписание ученика. */
   app.get('/schedule', { preHandler: student }, async (req) => {
     return query(
-      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, t.title as topic
+      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, l.topic_text as topic
          from lessons l
          join groups g on g.id = l.group_id
          join enrollments e on e.group_id = g.id and e.status='active'
-    left join topics t on t.id = coalesce(l.topic_id, g.current_topic_id)
         where e.student_id = $1
           and l.scheduled_at between now() - interval '7 days' and now() + interval '21 days'
         order by l.scheduled_at`, [req.user!.id]);

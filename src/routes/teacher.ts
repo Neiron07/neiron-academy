@@ -16,13 +16,12 @@ export default async function teacherRoutes(app: FastifyInstance) {
       `select l.id, l.scheduled_at, l.status, l.duration_min,
               g.id as group_id, g.name as group_name, g.room,
               c.name as course_name,
-              t.title as planned_topic,
+              l.topic_text as planned_topic,
               (select count(*) from enrollments e where e.group_id = g.id and e.status='active') as students_count,
               (select count(*) from attendance a where a.lesson_id = l.id) as marked_count
          from lessons l
          join groups g on g.id = l.group_id
          join courses c on c.id = g.course_id
-         left join topics t on t.id = coalesce(l.topic_id, g.current_topic_id)
         where l.scheduled_at::date = (now() at time zone 'Asia/Almaty')::date
           and l.status <> 'cancelled'
           and g.status = 'active'
@@ -138,8 +137,8 @@ export default async function teacherRoutes(app: FastifyInstance) {
         order by u.full_name`, [id]);
 
     const recentLessons = await query(
-      `select l.id, l.scheduled_at, l.status, t.title as topic
-         from lessons l left join topics t on t.id = l.topic_id
+      `select l.id, l.scheduled_at, l.status, l.topic_text as topic
+         from lessons l
         where l.group_id = $1 and l.scheduled_at < now()
         order by l.scheduled_at desc limit 10`, [id]);
 

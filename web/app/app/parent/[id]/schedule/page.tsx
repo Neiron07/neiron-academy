@@ -68,6 +68,12 @@ export default function ParentSchedulePage({ params }: { params: Promise<{ id: s
               {next.branch_name ?? 'Neiron Academy'}
               {next.room && ` · ${next.room}`}
             </p>
+            {next.topic && (
+              <p className="flex items-center gap-2 text-lavender">
+                <BookOpen className="size-4 shrink-0 text-purple" aria-hidden />
+                {next.topic}
+              </p>
+            )}
           </div>
 
           {reminder && (
@@ -89,7 +95,7 @@ export default function ParentSchedulePage({ params }: { params: Promise<{ id: s
                   <BookOpen className="size-4 shrink-0 text-muted" aria-hidden />
                   <div className="min-w-0">
                     <p className="truncate text-white">{l.course_name}</p>
-                    <p className="text-sm text-lavender">{l.teacher_name ?? '—'}</p>
+                    <p className="truncate text-sm text-lavender">{l.topic ?? l.teacher_name ?? '—'}</p>
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-sm">

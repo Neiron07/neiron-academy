@@ -16,6 +16,7 @@ export const ERROR_HINTS: Record<string, string> = {
   INSUFFICIENT_COINS: 'Не хватает коинов на это. Скопи ещё немного и возвращайся.',
   MANUAL_LIMIT_EXCEEDED: 'Лимит ручных коинов на этот урок исчерпан.',
   ATTENDANCE_INCOMPLETE: 'Сначала отметьте посещаемость всем ученикам группы.',
+  TOPIC_REQUIRED: 'Укажите тему урока перед завершением.',
   WINDOW_CLOSED: 'Окно для этого действия закрыто — прошло больше 24 часов после урока.',
   OUT_OF_STOCK: 'Товар закончился.',
   GROUP_FULL: 'В группе нет свободных мест.',

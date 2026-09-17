@@ -53,7 +53,7 @@ export interface StudentProfile {
   group: { id: string; name: string; course_name: string; current_topic: string | null } | null;
   achievements: Achievement[];
   locked: Omit<Achievement, 'earned_at'>[];
-  nextLesson: { id: string; scheduled_at: string; group_name: string } | null;
+  nextLesson: { id: string; scheduled_at: string; group_name: string; topic: string | null } | null;
   pendingHomeworkCount: number;
 }
 
@@ -230,13 +230,6 @@ export interface RosterStudent {
   manual_coins_given: number;
 }
 
-export interface LessonTopic {
-  id: string;
-  title: string;
-  module_title: string;
-  sort_order: number;
-}
-
 export interface LessonDetail {
   lesson: {
     id: string;
@@ -244,9 +237,9 @@ export interface LessonDetail {
     group_name: string;
     scheduled_at: string;
     status: LessonStatus;
+    topic_text: string | null;
   };
   roster: RosterStudent[];
-  topics: LessonTopic[];
   manual: { used: number; limit: number; presets: readonly number[] };
 }
 
@@ -449,13 +442,26 @@ export interface ParentScheduleItem {
   course_name: string;
   teacher_name: string | null;
   branch_name: string | null;
+  topic: string | null;
+}
+
+export interface StudentScheduleItem {
+  id: string;
+  scheduled_at: string;
+  status: LessonStatus;
+  group_name: string;
+  room: string | null;
+  topic: string | null;
 }
 
 // -------------------------------------------------------------- админ
 export interface AdminDashboard {
   lessonsToday: { completed: number; planned: number };
   notClosed: { id: string; scheduled_at: string; group_name: string; teacher: string | null }[];
-  groups: { id: string; name: string; capacity: number; course_name: string; filled: number }[];
+  groups: {
+    id: string; name: string; capacity: number; course_name: string; filled: number;
+    schedule: { weekday: number; start_time: string }[];
+  }[];
   money: { revenue_month: number; payments_count: number };
   atRisk: {
     student_id: string;

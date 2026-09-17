@@ -211,15 +211,18 @@ export default function AdminDashboardPage() {
       </div>
 
       <section>
-        <p className="mb-2 text-sm font-medium text-lavender">Загрузка групп</p>
+        <p className="mb-2 text-sm font-medium text-lavender">
+          Загрузка групп <span className="text-muted">— видно, в какие есть места и когда занятия</span>
+        </p>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
           {data.groups.map((g) => (
             <Card key={g.id} className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-white">{g.name}</p>
                 <p className="text-xs text-muted">{g.course_name}</p>
+                <p className="mt-0.5 text-xs text-lavender">{scheduleLabel(g.schedule)}</p>
               </div>
-              <span className={`font-display text-sm font-semibold ${g.filled >= g.capacity ? 'text-white' : 'text-lavender'}`}>
+              <span className={`shrink-0 font-display text-sm font-semibold ${g.filled >= g.capacity ? 'text-white' : 'text-lavender'}`}>
                 {g.filled}/{g.capacity}
               </span>
             </Card>
@@ -228,6 +231,22 @@ export default function AdminDashboardPage() {
       </section>
     </div>
   );
+}
+
+const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+/** «Пн, Ср · 16:00» — сгруппировано по времени, чтобы не плодить строки при одинаковом слоте в разные дни. */
+function scheduleLabel(schedule: { weekday: number; start_time: string }[]): string {
+  if (schedule.length === 0) return 'Расписание не задано';
+  const byTime = new Map<string, number[]>();
+  for (const s of schedule) {
+    const time = s.start_time.slice(0, 5);
+    if (!byTime.has(time)) byTime.set(time, []);
+    byTime.get(time)!.push(s.weekday);
+  }
+  return [...byTime.entries()]
+    .map(([time, weekdays]) => `${weekdays.sort((a, b) => a - b).map((w) => WEEKDAY_SHORT[w - 1]).join(', ')} · ${time}`)
+    .join('; ');
 }
 
 /**

@@ -101,7 +101,7 @@ function DayCell({ day }: { day: ParentAttendanceDay | null }) {
   const status = day.attendance_status;
   if (status === 'present') {
     return (
-      <div title="Был" className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg bg-purple text-white">
+      <div title={day.topic ? `Был — ${day.topic}` : 'Был'} className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg bg-purple text-white">
         <Check className="size-3" aria-hidden />
         <span className="text-[10px]">{dayOfMonth}</span>
       </div>
@@ -109,7 +109,7 @@ function DayCell({ day }: { day: ParentAttendanceDay | null }) {
   }
   if (status === 'late') {
     return (
-      <div title="Опоздал" className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg bg-purple text-white">
+      <div title={day.topic ? `Опоздал — ${day.topic}` : 'Опоздал'} className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg bg-purple text-white">
         <Circle className="size-2.5 fill-current" aria-hidden />
         <span className="text-[10px]">{dayOfMonth}</span>
       </div>

@@ -61,12 +61,12 @@ export default async function parentRoutes(app: FastifyInstance) {
         where sa.student_id = $1 order by sa.earned_at desc limit 12`, [id]);
 
     const topics = await query(
-      `select distinct t.title, max(l.scheduled_at) as last_at
+      `select distinct l.topic_text as title, max(l.scheduled_at) as last_at
          from attendance a
          join lessons l on l.id = a.lesson_id
-         join topics t on t.id = l.topic_id
         where a.student_id = $1 and l.status='completed' and a.status in ('present','late')
-        group by t.title order by last_at desc limit 15`, [id]);
+          and l.topic_text is not null
+        group by l.topic_text order by last_at desc limit 15`, [id]);
 
     return {
       child: { id, full_name: child?.full_name },
@@ -95,12 +95,11 @@ export default async function parentRoutes(app: FastifyInstance) {
       `select l.id, l.scheduled_at, l.status as lesson_status,
               l.cancelled_by_school, l.cancel_reason,
               a.status as attendance_status,
-              t.title as topic, g.name as group_name
+              l.topic_text as topic, g.name as group_name
          from lessons l
          join groups g on g.id = l.group_id
          join enrollments e on e.group_id = g.id and e.student_id = $1
     left join attendance a on a.lesson_id = l.id and a.student_id = $1
-    left join topics t on t.id = l.topic_id
         where l.scheduled_at >= coalesce(e.joined_at, current_date - 365)
           and l.scheduled_at <= now() + interval '14 days'
         order by l.scheduled_at desc`, [id]);
@@ -185,7 +184,8 @@ export default async function parentRoutes(app: FastifyInstance) {
               g.name as group_name, g.room,
               c.name as course_name,
               u.full_name as teacher_name,
-              b.name as branch_name
+              b.name as branch_name,
+              l.topic_text as topic
          from lessons l
          join enrollments e on e.group_id = l.group_id and e.status='active'
          join groups g on g.id = l.group_id

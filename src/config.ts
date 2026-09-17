@@ -14,6 +14,8 @@ const schema = z.object({
   GREEN_API_TOKEN: z.string().optional(),
   ADMIN_NOTIFY_PHONE: z.string().optional(),
   NOTIFICATIONS_ENABLED: z.coerce.boolean().default(false),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_CHAT_ID: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

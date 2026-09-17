@@ -46,7 +46,9 @@ export default async function adminRoutes(app: FastifyInstance) {
                 order by l.scheduled_at`),
 
         query(`select g.id, g.name, g.capacity, c.name as course_name,
-                      (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as filled
+                      (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as filled,
+                      (select coalesce(json_agg(json_build_object('weekday', gs.weekday, 'start_time', gs.start_time) order by gs.weekday, gs.start_time), '[]')
+                         from group_schedule gs where gs.group_id = g.id) as schedule
                  from groups g join courses c on c.id=g.course_id
                 where g.status='active' order by g.name`),
 

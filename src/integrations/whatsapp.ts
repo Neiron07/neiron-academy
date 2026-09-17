@@ -50,7 +50,7 @@ export async function flushNotifications(limit = 20) {
 
   const batch = await query<{ id: string; phone: string; body: string; attempts: number }>(
     `select id, phone, body, attempts from notifications
-      where status = 'queued' and attempts < 3
+      where status = 'queued' and channel = 'whatsapp' and attempts < 3
       order by created_at limit $1`, [limit]);
 
   let sent = 0;
