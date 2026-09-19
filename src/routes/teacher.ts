@@ -4,9 +4,13 @@ import { one, query } from '../db.js';
 import { AppError } from '../lib/errors.js';
 import { generatePin, hash } from '../lib/auth.js';
 import { audit } from '../lib/audit.js';
+import { COIN_GUIDE } from '../lib/rules.js';
 
 export default async function teacherRoutes(app: FastifyInstance) {
   const staff = app.auth(['teacher', 'admin']);
+
+  /** За что и сколько начислять коинов — та же витрина, что видит ученик. */
+  app.get('/coin-guide', { preHandler: staff }, async () => COIN_GUIDE);
 
   /**
    * Публичная карточка преподавателя — фото/опыт/достижения. Открыта
@@ -119,11 +123,10 @@ export default async function teacherRoutes(app: FastifyInstance) {
     const includeArchived = req.user!.role === 'admin' && q.status === 'all';
     return query(
       `select g.id, g.name, g.room, g.capacity, g.status, c.name as course_name,
-              t.title as current_topic, b.name as branch_name, g.teacher_id,
+              b.name as branch_name, g.teacher_id,
               (select count(*) from enrollments e where e.group_id=g.id and e.status='active') as students_count
          from groups g
          join courses c on c.id = g.course_id
-    left join topics t on t.id = g.current_topic_id
     left join branches b on b.id = g.branch_id
         where ($3 or g.status = 'active') and ($1 or g.teacher_id = $2)
         order by g.status, g.name`,

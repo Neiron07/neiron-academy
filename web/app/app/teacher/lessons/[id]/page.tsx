@@ -209,14 +209,17 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         </Button>
       )}
 
-      <div className="mb-3 flex items-center justify-between rounded-xl border border-purple-mid px-4 py-2.5 text-sm">
+      <Link
+        href="/app/teacher/coin-guide"
+        className="mb-3 flex items-center justify-between rounded-xl border border-purple-mid px-4 py-2.5 text-sm hover:border-purple"
+      >
         <span className="flex items-center gap-1.5 text-lavender">
-          <Coins className="size-4" aria-hidden /> Ручные коины
+          <Coins className="size-4" aria-hidden /> Ручные коины · сколько начислять?
         </span>
         <span className={remaining <= 0 ? 'text-muted' : 'text-white'}>
           Осталось {Math.max(0, remaining)} из {data.manual.limit}
         </span>
-      </div>
+      </Link>
 
       <div className="space-y-2">
         {data.roster.map((s) => (
@@ -288,6 +291,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
           onClose={() => setManualFor(null)}
           studentName={manualStudent.full_name}
           presets={data.manual.presets}
+          reasons={data.manual.reasons}
           remaining={remaining}
           loading={manualMutation.isPending}
           onSubmit={(coins, reason) => manualMutation.mutate({ student_id: manualStudent.student_id, coins, reason })}

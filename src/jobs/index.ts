@@ -8,26 +8,28 @@ import { estimateNextPayment } from '../lib/payments.js';
 
 const TZ = 'Asia/Almaty';
 
-export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: any) => void }) {
-  const jobs: Cron[] = [];
+/** «через 45 мин» / «через час 10 мин» / «через 2 ч» — по фактическому остатку времени. */
+function minutesLabel(startsAt: string): string {
+  const min = Math.max(0, Math.round((new Date(startsAt).getTime() - Date.now()) / 60_000));
+  if (min < 60) return `через ${min} мин`;
+  const h = Math.floor(min / 60);
+  const rest = min % 60;
+  return rest === 0 ? `через ${h} ч` : `через ${h} ч ${rest} мин`;
+}
 
-  // Раскатка расписания на 14 дней вперёд — каждый день в 03:00
-  jobs.push(new Cron('0 3 * * *', { timezone: TZ }, async () => {
-    const r = await one<{ generate_lessons: number }>(`select generate_lessons(14)`);
-    log.info({ created: r?.generate_lessons }, 'jobs: уроки сгенерированы');
-  }));
-
-  // Очередь уведомлений — каждую минуту
-  jobs.push(new Cron('* * * * *', { timezone: TZ }, async () => {
-    try { await flushNotifications(20); } catch (e) { log.error(e); }
-    try { await flushTelegramNotifications(20); } catch (e) { log.error(e); }
-  }));
-
-  // Напоминания персоналу в Telegram — пробные/события и обычные уроки за
-  // ~час до начала, чтобы менеджер мог проконтролировать и подтолкнуть препода.
-  // Окно (50–70 мин) шире шага крона (15 мин) намеренно — dedupe_key защищает
-  // от повторной отправки того же урока/события на соседнем тике.
-  jobs.push(new Cron('*/15 * * * *', { timezone: TZ }, async () => {
+/**
+ * Напоминания персоналу в Telegram — пробные/события и обычные уроки.
+ * Окно расширено до 0–75 минут (не только «ровно через час») по двум причинам:
+ * 1) на Render free-tier сервис засыпает без трафика и просыпается только по
+ *    входящему запросу — если это случится, когда до урока остаётся, скажем,
+ *    20 минут, лучше позднее предупреждение, чем полная тишина;
+ * 2) функция запускается сразу при старте процесса (см. вызов ниже), а не
+ *    только по расписанию — тот же случай пробуждения после сна.
+ * dedupe_key в enqueueTelegramNotification защищает от повторной отправки
+ * одного и того же урока/события на соседних тиках.
+ */
+async function runStaffReminders(log: { error: (o: any) => void }) {
+  try {
     const events = await query<{
       id: string; kind: 'trial' | 'event'; title: string; starts_at: string;
       room: string | null; contact_name: string | null; contact_phone: string | null;
@@ -38,13 +40,13 @@ export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: 
          from calendar_events e
     left join users u on u.id = e.teacher_id
     left join branches b on b.id = e.branch_id
-        where e.starts_at between now() + interval '50 minutes' and now() + interval '70 minutes'`);
+        where e.starts_at between now() and now() + interval '75 minutes'`);
 
     for (const e of events) {
       const time = new Date(e.starts_at).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
       const location = [e.branch_name, e.room].filter(Boolean).join(', ');
       const lines = [
-        `${e.kind === 'trial' ? '🎓 Пробный урок' : '📌 Событие'} через час — «${e.title}»`,
+        `${e.kind === 'trial' ? '🎓 Пробный урок' : '📌 Событие'} ${minutesLabel(e.starts_at)} — «${e.title}»`,
         `🕐 ${time}`,
         e.teacher_name ? `👨‍🏫 ${e.teacher_name}` : '👨‍🏫 преподаватель не назначен',
         location && `📍 ${location}`,
@@ -65,20 +67,44 @@ export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: 
     left join users u on u.id = g.teacher_id
     left join branches b on b.id = g.branch_id
         where l.status = 'planned' and g.status = 'active'
-          and l.scheduled_at between now() + interval '50 minutes' and now() + interval '70 minutes'`);
+          and l.scheduled_at between now() and now() + interval '75 minutes'`);
 
     for (const l of lessons) {
       const time = new Date(l.scheduled_at).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
       const location = [l.branch_name, l.room].filter(Boolean).join(', ');
       const lines = [
-        `📚 Урок через час — ${l.group_name} (${l.course_name})`,
+        `📚 Урок ${minutesLabel(l.scheduled_at)} — ${l.group_name} (${l.course_name})`,
         `🕐 ${time}`,
         l.teacher_name ? `👨‍🏫 ${l.teacher_name}` : '👨‍🏫 преподаватель не назначен',
         location && `📍 ${location}`,
       ].filter(Boolean);
       await enqueueTelegramNotification({ body: lines.join('\n'), dedupeKey: `tg:lesson:${l.id}` });
     }
+  } catch (e) {
+    log.error(e);
+  }
+}
+
+export function startJobs(log: { info: (o: any, m?: string) => void; error: (o: any) => void }) {
+  const jobs: Cron[] = [];
+
+  // Раскатка расписания на 14 дней вперёд — каждый день в 03:00
+  jobs.push(new Cron('0 3 * * *', { timezone: TZ }, async () => {
+    const r = await one<{ generate_lessons: number }>(`select generate_lessons(14)`);
+    log.info({ created: r?.generate_lessons }, 'jobs: уроки сгенерированы');
   }));
+
+  // Очередь уведомлений — каждую минуту
+  jobs.push(new Cron('* * * * *', { timezone: TZ }, async () => {
+    try { await flushNotifications(20); } catch (e) { log.error(e); }
+    try { await flushTelegramNotifications(20); } catch (e) { log.error(e); }
+  }));
+
+  // Сразу при старте процесса — не только по таймеру. На Render free-tier это
+  // единственный шанс поймать урок/событие, если сервис проснулся по чужому
+  // запросу уже почти впритык к началу (см. комментарий у runStaffReminders).
+  void runStaffReminders(log);
+  jobs.push(new Cron('*/15 * * * *', { timezone: TZ }, () => runStaffReminders(log)));
 
   // Напоминание об уроке — каждые 15 минут, за 2 часа до занятия
   jobs.push(new Cron('*/15 * * * *', { timezone: TZ }, async () => {

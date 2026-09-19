@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { one, query } from '../db.js';
-import { COIN_RULES, levelFromXp } from '../lib/rules.js';
+import { COIN_GUIDE, levelFromXp } from '../lib/rules.js';
 import { AppError } from '../lib/errors.js';
 import { applyCoins } from '../lib/coins.js';
 
@@ -12,10 +12,10 @@ export default async function studentRoutes(app: FastifyInstance) {
 
   /**
    * За что и сколько начисляют коины — для страницы-мотиватора в кабинете.
-   * Отдаём сами COIN_RULES, а не дублируем цифры во фронте отдельным списком —
+   * Отдаём сам COIN_GUIDE, а не дублируем цифры во фронте отдельным списком —
    * единственный источник правды остаётся src/lib/rules.ts.
    */
-  app.get('/coin-rules', { preHandler: student }, async () => COIN_RULES);
+  app.get('/coin-rules', { preHandler: student }, async () => COIN_GUIDE);
 
   /** Главный экран кабинета: маскот, коины, ачивки, ближайший урок. */
   app.get('/profile', { preHandler: student }, async (req) => {
@@ -26,12 +26,11 @@ export default async function studentRoutes(app: FastifyInstance) {
     if (!s) throw new AppError(404, 'NOT_FOUND', 'Профиль не найден');
 
     const group = await one(
-      `select g.id, g.name, c.name as course_name, t.title as current_topic,
+      `select g.id, g.name, c.name as course_name,
               g.teacher_id, u.full_name as teacher_name
          from enrollments e
          join groups g on g.id = e.group_id
          join courses c on c.id = g.course_id
-         left join topics t on t.id = g.current_topic_id
     left join users u on u.id = g.teacher_id
         where e.student_id = $1 and e.status='active' limit 1`, [id]);
 

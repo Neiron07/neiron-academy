@@ -51,7 +51,7 @@ export interface StudentProfile {
   equipped: Equipped;
   gender: StudentGender | null;
   group: {
-    id: string; name: string; course_name: string; current_topic: string | null;
+    id: string; name: string; course_name: string;
     teacher_id: string | null; teacher_name: string | null;
   } | null;
   achievements: Achievement[];
@@ -60,16 +60,9 @@ export interface StudentProfile {
   pendingHomeworkCount: number;
 }
 
-export interface CoinRules {
-  attendance: { coins: number; xp: number };
-  punctual: { coins: number; xp: number };
-  cancelled_by_school: { coins: number; xp: number };
-  homework_on_time: { coins: number; xp: number };
-  homework_late: { coins: number; xp: number };
-  homework_excellent: { coins: number; xp: number };
-  streak_4: { coins: number; xp: number };
-  module_done: { coins: number; xp: number };
-  course_done: { coins: number; xp: number };
+export interface CoinGuideItem {
+  label: string;
+  coins: number;
 }
 
 export interface Achievement {
@@ -246,7 +239,7 @@ export interface LessonDetail {
     topic_text: string | null;
   };
   roster: RosterStudent[];
-  manual: { used: number; limit: number; presets: readonly number[] };
+  manual: { used: number; limit: number; presets: readonly number[]; reasons: readonly string[] };
 }
 
 export interface TeacherGroup {
@@ -257,7 +250,6 @@ export interface TeacherGroup {
   status?: 'active' | 'archived';
   teacher_id?: string | null;
   course_name: string;
-  current_topic: string | null;
   branch_name: string | null;
   students_count: number;
 }

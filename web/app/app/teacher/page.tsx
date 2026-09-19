@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ChevronRight, MapPin, Sparkles, CalendarDays, CalendarCheck2, Mail } from 'lucide-react';
+import { AlertTriangle, ChevronRight, MapPin, Sparkles, CalendarDays, CalendarCheck2, Mail, Coins } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { TeacherTodayResponse } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
@@ -40,6 +40,16 @@ export default function TeacherTodayPage() {
           </div>
         </div>
       </Card>
+
+      <Link href="/app/teacher/coin-guide">
+        <Card className="mb-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Coins className="size-5 shrink-0 text-purple" aria-hidden />
+            <p className="font-medium text-white">Сколько начислять коинов</p>
+          </div>
+          <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
+        </Card>
+      </Link>
 
       {isLoading && (
         <div className="space-y-3">

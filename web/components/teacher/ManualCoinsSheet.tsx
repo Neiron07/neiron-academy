@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { CoinIcon } from '@/components/ui/CoinIcon';
-import { MANUAL_REASONS } from '@/lib/constants';
 
 export function ManualCoinsSheet({
   open,
   onClose,
   studentName,
   presets,
+  reasons,
   remaining,
   loading,
   onSubmit,
@@ -19,12 +19,13 @@ export function ManualCoinsSheet({
   onClose: () => void;
   studentName: string;
   presets: readonly number[];
+  reasons: readonly string[];
   remaining: number;
   loading: boolean;
   onSubmit: (coins: number, reason: string) => void;
 }) {
   const [coins, setCoins] = useState<number>(presets[0] ?? 5);
-  const [reason, setReason] = useState<string>(MANUAL_REASONS[0]);
+  const [reason, setReason] = useState<string>(reasons[0] ?? '');
 
   return (
     <Sheet open={open} onClose={onClose} title={`Коины: ${studentName}`}>
@@ -48,7 +49,7 @@ export function ManualCoinsSheet({
 
       <p className="mb-2 text-sm text-lavender">Причина</p>
       <div className="mb-5 space-y-2">
-        {MANUAL_REASONS.map((r) => (
+        {reasons.map((r) => (
           <button
             key={r}
             onClick={() => setReason(r)}

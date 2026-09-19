@@ -32,10 +32,7 @@ export default function TeacherGroupsPage() {
             <Card className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-white">{g.name}</p>
-                <p className="text-sm text-lavender">
-                  {g.course_name}
-                  {g.current_topic && ` · ${g.current_topic}`}
-                </p>
+                <p className="text-sm text-lavender">{g.course_name}</p>
                 <p className="mt-1 text-sm text-muted">
                   {g.students_count}/{g.capacity} учеников{g.room && ` · ${g.room}`}
                 </p>

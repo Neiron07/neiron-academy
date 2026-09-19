@@ -4,7 +4,7 @@ import { one, query, tx } from '../db.js';
 import { AppError } from '../lib/errors.js';
 import { applyCoins, assertManualLimit, awardAttendance, checkStreak } from '../lib/coins.js';
 import { evaluateAchievements } from '../lib/achievements.js';
-import { COIN_RULES, LESSON_EDIT_WINDOW_HOURS, MANUAL_COIN_PRESETS } from '../lib/rules.js';
+import { COIN_RULES, LESSON_EDIT_WINDOW_HOURS, MANUAL_COIN_PRESETS, MANUAL_REASONS } from '../lib/rules.js';
 import { enqueueNotification } from '../integrations/whatsapp.js';
 import { audit } from '../lib/audit.js';
 
@@ -68,6 +68,7 @@ export default async function lessonRoutes(app: FastifyInstance) {
         used: Number(manualUsed?.used ?? 0),
         limit: 30,
         presets: MANUAL_COIN_PRESETS,
+        reasons: MANUAL_REASONS,
       },
     };
   });

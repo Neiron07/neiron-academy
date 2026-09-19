@@ -7,12 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-
-const KINDS = [
-  { id: 'physical', label: 'Физический' },
-  { id: 'virtual', label: 'Виртуальный' },
-  { id: 'privilege', label: 'Привилегия' },
-] as const;
+import { SHOP_ITEM_KINDS as KINDS } from '@/lib/constants';
 
 export function CreateShopItemForm() {
   const qc = useQueryClient();

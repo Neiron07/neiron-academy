@@ -1,5 +1,12 @@
 export const SCHOOL_WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_PHONE ?? '77471655391';
 
+/** Общие для создания и редактирования товара магазина — раньше дублировались в двух файлах. */
+export const SHOP_ITEM_KINDS = [
+  { id: 'physical', label: 'Физический' },
+  { id: 'virtual', label: 'Виртуальный' },
+  { id: 'privilege', label: 'Привилегия' },
+] as const;
+
 export function waLink(text: string, phone: string = SCHOOL_WHATSAPP) {
   const digits = phone.replace(/\D/g, '');
   return `https://api.whatsapp.com/send/?phone=${digits}&text=${encodeURIComponent(text)}`;
@@ -35,12 +42,3 @@ export const ATTENDANCE_LABEL: Record<string, string> = {
   excused: 'Пропустил по уважительной',
   absent: 'Прогул',
 };
-
-/** Зеркало MANUAL_REASONS из src/lib/rules.ts — бэкенд не отдаёт список причин по API. */
-export const MANUAL_REASONS = [
-  'Активно работал на уроке',
-  'Помог однокласснику',
-  'Задал отличный вопрос',
-  'Доделал проект сверх задания',
-  'Помог с уборкой рабочего места',
-] as const;
