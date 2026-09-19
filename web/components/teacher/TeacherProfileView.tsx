@@ -17,6 +17,9 @@ export function TeacherProfileView({ teacherId }: { teacherId: string }) {
   if (isLoading) return <SkeletonCard />;
   if (!data) return <EmptyState icon={User} title="Преподаватель не найден" />;
 
+  // На случай старого кэша/ответа без coalesce — не полагаемся только на бэкенд.
+  const achievements = data.achievements ?? [];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center text-center">
@@ -43,13 +46,13 @@ export function TeacherProfileView({ teacherId }: { teacherId: string }) {
         </Card>
       )}
 
-      {data.achievements.length > 0 && (
+      {achievements.length > 0 && (
         <Card>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-lavender">
             <Award className="size-4" aria-hidden /> Достижения
           </p>
           <ul className="space-y-1.5">
-            {data.achievements.map((a, i) => (
+            {achievements.map((a, i) => (
               <li key={i} className="flex items-start gap-2 text-white">
                 <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-purple" />
                 {a}
@@ -59,7 +62,7 @@ export function TeacherProfileView({ teacherId }: { teacherId: string }) {
         </Card>
       )}
 
-      {!data.bio && data.achievements.length === 0 && !data.experience && (
+      {!data.bio && achievements.length === 0 && !data.experience && (
         <p className="text-center text-sm text-muted">Преподаватель пока не заполнил профиль</p>
       )}
     </div>

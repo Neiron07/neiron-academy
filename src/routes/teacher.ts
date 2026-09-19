@@ -15,8 +15,11 @@ export default async function teacherRoutes(app: FastifyInstance) {
    */
   app.get('/profile/:id', { preHandler: app.auth(['student', 'parent', 'teacher', 'admin', 'marketer']) }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
-    const teacher = await one(
-      `select u.id, u.full_name, tp.bio, tp.experience, tp.photo_url, tp.achievements
+    // coalesce achievements: у преподавателя без строки в teacher_profiles (никто ещё не
+    // заполнял профиль — почти все сейчас) left join даёт null, а не дефолт таблицы '[]'.
+    const teacher = await one<{ achievements: string[] | null }>(
+      `select u.id, u.full_name, tp.bio, tp.experience, tp.photo_url,
+              coalesce(tp.achievements, '[]'::jsonb) as achievements
          from users u
     left join teacher_profiles tp on tp.user_id = u.id
         where u.id = $1 and u.role = 'teacher' and u.is_active`, [id]);

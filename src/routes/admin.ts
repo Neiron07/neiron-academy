@@ -439,7 +439,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const teacher = await one(
       `select u.id, u.full_name, u.phone, u.role, u.is_active, u.created_at,
-              tp.bio, tp.experience, tp.photo_url, tp.achievements
+              tp.bio, tp.experience, tp.photo_url, coalesce(tp.achievements, '[]'::jsonb) as achievements
          from users u
     left join teacher_profiles tp on tp.user_id = u.id
         where u.id = $1 and u.role in ('teacher','admin','marketer')`, [id]);
