@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, BookOpen } from 'lucide-react';
+import { CalendarDays, BookOpen, User } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { StudentScheduleItem } from '@/lib/types';
 import { TopBar } from '@/components/layout/TopBar';
@@ -62,6 +63,15 @@ export default function StudentSchedulePage() {
                         </p>
                       ) : (
                         <p className="mt-0.5 text-sm text-muted">{l.room ?? 'Neiron Academy'}</p>
+                      )}
+                      {l.teacher_id && (
+                        <Link
+                          href={`/app/student/teacher/${l.teacher_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 inline-flex items-center gap-1 text-xs text-purple hover:underline"
+                        >
+                          <User className="size-3" aria-hidden /> {l.teacher_name}
+                        </Link>
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">

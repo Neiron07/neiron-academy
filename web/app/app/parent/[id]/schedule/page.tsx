@@ -1,8 +1,9 @@
 'use client';
 
 import { use } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Clock, User, MapPin, Bell, BookOpen } from 'lucide-react';
+import { CalendarDays, Clock, User, MapPin, Bell, BookOpen, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { ParentScheduleItem } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
@@ -59,10 +60,18 @@ export default function ParentSchedulePage({ params }: { params: Promise<{ id: s
               <Clock className="size-4 shrink-0 text-purple" aria-hidden />
               {formatTime(next.scheduled_at)} – {formatTime(endsAt.toISOString())}
             </p>
-            <p className="flex items-center gap-2 text-lavender">
-              <User className="size-4 shrink-0 text-purple" aria-hidden />
-              {next.teacher_name ?? 'Преподаватель уточняется'}
-            </p>
+            {next.teacher_id ? (
+              <Link href={`/app/parent/${id}/teacher/${next.teacher_id}`} className="flex items-center gap-2 text-lavender hover:text-white hover:underline">
+                <User className="size-4 shrink-0 text-purple" aria-hidden />
+                {next.teacher_name}
+                <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+              </Link>
+            ) : (
+              <p className="flex items-center gap-2 text-lavender">
+                <User className="size-4 shrink-0 text-purple" aria-hidden />
+                Преподаватель уточняется
+              </p>
+            )}
             <p className="flex items-center gap-2 text-lavender">
               <MapPin className="size-4 shrink-0 text-purple" aria-hidden />
               {next.branch_name ?? 'Neiron Academy'}

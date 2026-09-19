@@ -50,11 +50,26 @@ export interface StudentProfile {
   mascotUnlocked: boolean;
   equipped: Equipped;
   gender: StudentGender | null;
-  group: { id: string; name: string; course_name: string; current_topic: string | null } | null;
+  group: {
+    id: string; name: string; course_name: string; current_topic: string | null;
+    teacher_id: string | null; teacher_name: string | null;
+  } | null;
   achievements: Achievement[];
   locked: Omit<Achievement, 'earned_at'>[];
   nextLesson: { id: string; scheduled_at: string; group_name: string; topic: string | null } | null;
   pendingHomeworkCount: number;
+}
+
+export interface CoinRules {
+  attendance: { coins: number; xp: number };
+  punctual: { coins: number; xp: number };
+  cancelled_by_school: { coins: number; xp: number };
+  homework_on_time: { coins: number; xp: number };
+  homework_late: { coins: number; xp: number };
+  homework_excellent: { coins: number; xp: number };
+  streak_4: { coins: number; xp: number };
+  module_done: { coins: number; xp: number };
+  course_done: { coins: number; xp: number };
 }
 
 export interface Achievement {
@@ -178,15 +193,6 @@ export interface StudentHomework {
   submitted_at: string | null;
 }
 
-export interface StudentScheduleItem {
-  id: string;
-  scheduled_at: string;
-  status: LessonStatus;
-  group_name: string;
-  room: string | null;
-  topic: string | null;
-}
-
 // -------------------------------------------------------------- преподаватель
 export interface TeacherTodayLesson {
   id: string;
@@ -294,6 +300,7 @@ export interface PendingOrder {
 export interface TeacherScheduleItem {
   id: string;
   scheduled_at: string;
+  duration_min: number;
   status: LessonStatus;
   group_name: string;
   room: string | null;
@@ -440,6 +447,7 @@ export interface ParentScheduleItem {
   group_name: string;
   room: string | null;
   course_name: string;
+  teacher_id: string | null;
   teacher_name: string | null;
   branch_name: string | null;
   topic: string | null;
@@ -452,6 +460,17 @@ export interface StudentScheduleItem {
   group_name: string;
   room: string | null;
   topic: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+}
+
+export interface TeacherProfile {
+  id: string;
+  full_name: string;
+  bio: string | null;
+  experience: string | null;
+  photo_url: string | null;
+  achievements: string[];
 }
 
 // -------------------------------------------------------------- админ
@@ -607,6 +626,11 @@ export interface AdminStaff {
   is_active: boolean;
   created_at: string;
   groups_count: number;
+  /** Только в ответе GET /admin/teachers/:id — публичный профиль преподавателя. */
+  bio?: string | null;
+  experience?: string | null;
+  photo_url?: string | null;
+  achievements?: string[];
 }
 
 export interface AdminStaffGroup {

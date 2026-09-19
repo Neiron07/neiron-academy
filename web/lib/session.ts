@@ -24,4 +24,5 @@ export interface PublicUser {
   id: string;
   role: Role;
   full_name: string;
+  onboarded_at: string | null;
 }

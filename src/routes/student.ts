@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { one, query } from '../db.js';
-import { levelFromXp } from '../lib/rules.js';
+import { COIN_RULES, levelFromXp } from '../lib/rules.js';
 import { AppError } from '../lib/errors.js';
 import { applyCoins } from '../lib/coins.js';
 
@@ -9,6 +9,13 @@ const MASCOT_UNLOCK_COST = 100;
 
 export default async function studentRoutes(app: FastifyInstance) {
   const student = app.auth(['student']);
+
+  /**
+   * За что и сколько начисляют коины — для страницы-мотиватора в кабинете.
+   * Отдаём сами COIN_RULES, а не дублируем цифры во фронте отдельным списком —
+   * единственный источник правды остаётся src/lib/rules.ts.
+   */
+  app.get('/coin-rules', { preHandler: student }, async () => COIN_RULES);
 
   /** Главный экран кабинета: маскот, коины, ачивки, ближайший урок. */
   app.get('/profile', { preHandler: student }, async (req) => {
@@ -19,11 +26,13 @@ export default async function studentRoutes(app: FastifyInstance) {
     if (!s) throw new AppError(404, 'NOT_FOUND', 'Профиль не найден');
 
     const group = await one(
-      `select g.id, g.name, c.name as course_name, t.title as current_topic
+      `select g.id, g.name, c.name as course_name, t.title as current_topic,
+              g.teacher_id, u.full_name as teacher_name
          from enrollments e
          join groups g on g.id = e.group_id
          join courses c on c.id = g.course_id
          left join topics t on t.id = g.current_topic_id
+    left join users u on u.id = g.teacher_id
         where e.student_id = $1 and e.status='active' limit 1`, [id]);
 
     const achievements = await query(
@@ -146,10 +155,12 @@ export default async function studentRoutes(app: FastifyInstance) {
   /** Расписание ученика. */
   app.get('/schedule', { preHandler: student }, async (req) => {
     return query(
-      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, l.topic_text as topic
+      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, l.topic_text as topic,
+              g.teacher_id, u.full_name as teacher_name
          from lessons l
          join groups g on g.id = l.group_id
          join enrollments e on e.group_id = g.id and e.status='active'
+    left join users u on u.id = g.teacher_id
         where e.student_id = $1
           and l.scheduled_at between now() - interval '7 days' and now() + interval '21 days'
         order by l.scheduled_at`, [req.user!.id]);

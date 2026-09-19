@@ -32,6 +32,10 @@ export function TeacherFormSheet({
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'teacher' | 'admin' | 'marketer'>('teacher');
   const [password, setPassword] = useState('');
+  const [bio, setBio] = useState('');
+  const [experience, setExperience] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [achievementsText, setAchievementsText] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -40,30 +44,44 @@ export function TeacherFormSheet({
       setFullName(existing.full_name);
       setPhone(existing.phone.replace(/\D/g, ''));
       setRole(existing.role);
+      setBio(existing.bio ?? '');
+      setExperience(existing.experience ?? '');
+      setPhotoUrl(existing.photo_url ?? '');
+      setAchievementsText((existing.achievements ?? []).join('\n'));
     } else {
       setFullName('');
       setPhone('');
       setRole('teacher');
+      setBio('');
+      setExperience('');
+      setPhotoUrl('');
+      setAchievementsText('');
     }
     setPassword('');
     setError('');
   }, [open, existing]);
 
   const save = useMutation({
-    mutationFn: () =>
-      existing
+    mutationFn: () => {
+      const achievements = achievementsText.split('\n').map((s) => s.trim()).filter(Boolean);
+      const profileFields = role === 'teacher'
+        ? { bio: bio.trim() || null, experience: experience.trim() || null, photo_url: photoUrl.trim() || null, achievements }
+        : {};
+      return existing
         ? api.patch<AdminStaff>(`/admin/teachers/${existing.id}`, {
             full_name: fullName.trim(),
             phone,
             role,
             password: password.trim() || undefined,
+            ...profileFields,
           })
         : api.post<AdminStaff>('/admin/teachers', {
             full_name: fullName.trim(),
             phone,
             role,
             password: password.trim(),
-          }),
+          });
+    },
     onSuccess: () => {
       toast(existing ? 'Данные обновлены' : 'Сотрудник добавлен', 'success');
       qc.invalidateQueries({ queryKey: ['admin-teachers'] });
@@ -104,6 +122,44 @@ export function TeacherFormSheet({
           onChange={(e) => setPassword(e.target.value)}
           hint={existing ? 'Оставь пустым, если менять не нужно' : 'Минимум 8 символов'}
         />
+
+        {existing && role === 'teacher' && (
+          <div className="space-y-3 border-t border-purple-mid/40 pt-3">
+            <p className="text-sm text-lavender">Публичный профиль — виден ученикам и родителям</p>
+            <Input
+              label="Ссылка на фото (необязательно)"
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              placeholder="https://..."
+            />
+            <Input
+              label="Опыт (необязательно)"
+              value={experience}
+              onChange={(e) => setExperience(e.target.value)}
+              placeholder="Например: 5 лет опыта, Python/Django"
+            />
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-lavender">О себе (необязательно)</span>
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full resize-none rounded-xl border border-purple-mid bg-transparent px-4 py-3 text-white outline-none focus:border-purple"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-lavender">Достижения (необязательно, по одному на строку)</span>
+              <textarea
+                rows={3}
+                value={achievementsText}
+                onChange={(e) => setAchievementsText(e.target.value)}
+                placeholder={'Например:\nЧемпион хакатона 2023\n50+ выпускников'}
+                className="w-full resize-none rounded-xl border border-purple-mid bg-transparent px-4 py-3 text-white placeholder:text-muted outline-none focus:border-purple"
+              />
+            </label>
+          </div>
+        )}
+
         {error && <p className="text-sm text-white">{error}</p>}
         <Button fullWidth size="lg" disabled={!canSave} loading={save.isPending} onClick={() => save.mutate()}>
           Сохранить

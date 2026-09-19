@@ -15,12 +15,14 @@ const items = [
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Канбану из 5 колонок тесно в стандартных 480px — расширяем только на десктопе
-  // и только для этого раздела, мобильная раскладка везде остаётся как была.
+  // Канбану из 5 колонок и календарной сетке из 7 дней тесно в стандартных
+  // 480px — расширяем только на десктопе и только для этих разделов,
+  // мобильная раскладка везде остаётся как была (на мобилке сетка скроллится).
   const isTasks = pathname?.startsWith('/app/teacher/tasks');
+  const isSchedule = pathname?.startsWith('/app/teacher/schedule');
 
   return (
-    <MobileShell maxWidthClass={isTasks ? 'max-w-[480px] lg:max-w-[1300px]' : 'max-w-[480px]'}>
+    <MobileShell maxWidthClass={isTasks || isSchedule ? 'max-w-[480px] lg:max-w-[1300px]' : 'max-w-[480px]'}>
       {children}
       <BottomNav items={items} />
     </MobileShell>

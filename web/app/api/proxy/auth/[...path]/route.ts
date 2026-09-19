@@ -49,10 +49,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pat
     return res;
   }
 
+  // Остальные POST под /auth/* — не только вход (login/otp, без токена), но и
+  // авторизованные действия вроде onboarding/seen. Токен пробрасываем, если
+  // кука есть — для входа он просто не пригодится бэкенду, а без него
+  // авторизованные вызовы молча падали 401 (сессия была, а токен терялся здесь).
+  const token = req.cookies.get(COOKIE_TOKEN)?.value;
   const body = await req.text();
   const upstream = await backendFetch(`/api/auth/${subpath}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body,
   });
   const data = await upstream.json().catch(() => ({}));

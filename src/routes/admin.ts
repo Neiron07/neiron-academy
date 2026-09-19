@@ -307,33 +307,37 @@ export default async function adminRoutes(app: FastifyInstance) {
         }
       }
 
-      // Родитель: обновляем уже привязанного или создаём нового и привязываем.
+      // Родитель: находим по телефону уже существующего (например, второй
+      // ребёнок той же семьи) или создаём нового — НИКОГДА не перезаписываем
+      // телефон/имя чужого уже существующего родителя (раньше это делало
+      // update по id уже привязанного родителя и либо портило запись,
+      // общую с другим ребёнком, либо падало на unique(phone), если
+      // введённый номер совпадал с чьим-то ещё аккаунтом).
       if (body.parent) {
         const phone = normalizePhone(body.parent.phone);
-        const linked = await c.query(
-          `select pu.id from parents_students ps join users pu on pu.id=ps.parent_id
-            where ps.student_id=$1 order by ps.is_primary desc limit 1`, [id]);
-
-        if (linked.rowCount) {
-          await c.query(`update users set full_name=$2, phone=$3 where id=$1`,
-            [linked.rows[0].id, body.parent!.full_name, phone]);
+        const byPhone = await c.query(`select id from users where phone=$1`, [phone]);
+        let parentId: string;
+        if (byPhone.rowCount) {
+          parentId = byPhone.rows[0].id;
+          // Тот же родитель может быть общим для нескольких детей — обновляем
+          // имя как общий реквизит, но не трогаем других его детей и не
+          // создаём дублей.
+          await c.query(`update users set full_name=$2 where id=$1`, [parentId, body.parent!.full_name]);
         } else {
-          const byPhone = await c.query(`select id from users where phone=$1`, [phone]);
-          let parentId: string;
-          if (byPhone.rowCount) {
-            parentId = byPhone.rows[0].id;
-          } else {
-            // pin_hash оставляем пустым — «Сбросить PIN» в интерфейсе выдаст код, который реально знает админ.
-            const created = await c.query(
-              `insert into users (branch_id, role, full_name, phone, created_by)
-               values ((select branch_id from users where id=$4),'parent',$1,$2,$3) returning id`,
-              [body.parent!.full_name, phone, req.user!.id, id]);
-            parentId = created.rows[0].id;
-          }
-          await c.query(
-            `insert into parents_students (parent_id, student_id) values ($1,$2) on conflict do nothing`,
-            [parentId, id]);
+          // pin_hash оставляем пустым — «Сбросить PIN» в интерфейсе выдаст код, который реально знает админ.
+          const created = await c.query(
+            `insert into users (branch_id, role, full_name, phone, created_by)
+             values ((select branch_id from users where id=$4),'parent',$1,$2,$3) returning id`,
+            [body.parent!.full_name, phone, req.user!.id, id]);
+          parentId = created.rows[0].id;
         }
+        // Если у ученика уже был привязан другой родитель — отвязываем именно
+        // его от ЭТОГО ученика (запись самого родителя, включая других его
+        // детей, не трогаем), затем привязываем правильного.
+        await c.query(`delete from parents_students where student_id=$1 and parent_id<>$2`, [id, parentId]);
+        await c.query(
+          `insert into parents_students (parent_id, student_id) values ($1,$2) on conflict do nothing`,
+          [parentId, id]);
       }
     });
 
@@ -434,8 +438,11 @@ export default async function adminRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
 
     const teacher = await one(
-      `select id, full_name, phone, role, is_active, created_at from users
-        where id = $1 and role in ('teacher','admin','marketer')`, [id]);
+      `select u.id, u.full_name, u.phone, u.role, u.is_active, u.created_at,
+              tp.bio, tp.experience, tp.photo_url, tp.achievements
+         from users u
+    left join teacher_profiles tp on tp.user_id = u.id
+        where u.id = $1 and u.role in ('teacher','admin','marketer')`, [id]);
     if (!teacher) throw new AppError(404, 'NOT_FOUND', 'Сотрудник не найден');
 
     const groups = await query(
@@ -485,6 +492,10 @@ export default async function adminRoutes(app: FastifyInstance) {
       role: z.enum(['teacher', 'admin', 'marketer']).optional(),
       is_active: z.boolean().optional(),
       password: z.string().min(8).optional(),
+      bio: z.string().max(2000).nullable().optional(),
+      experience: z.string().max(500).nullable().optional(),
+      photo_url: z.string().url().nullable().optional(),
+      achievements: z.array(z.string().max(200)).max(20).optional(),
     }).parse(req.body);
 
     const existing = await one<{ id: string }>(
@@ -505,6 +516,23 @@ export default async function adminRoutes(app: FastifyInstance) {
        returning id, full_name, phone, role, is_active, created_at`,
       [id, body.full_name ?? null, body.phone ? normalizePhone(body.phone) : null, body.role ?? null,
        body.is_active ?? null, passwordHash]);
+
+    const hasProfileFields = body.bio !== undefined || body.experience !== undefined
+      || body.photo_url !== undefined || body.achievements !== undefined;
+    if (hasProfileFields) {
+      await query(
+        `insert into teacher_profiles (user_id, bio, experience, photo_url, achievements, updated_at)
+         values ($1,$2,$3,$4,$5,now())
+         on conflict (user_id) do update set
+           bio = case when $6 then excluded.bio else teacher_profiles.bio end,
+           experience = case when $7 then excluded.experience else teacher_profiles.experience end,
+           photo_url = case when $8 then excluded.photo_url else teacher_profiles.photo_url end,
+           achievements = case when $9 then excluded.achievements else teacher_profiles.achievements end,
+           updated_at = now()`,
+        [id, body.bio ?? null, body.experience ?? null, body.photo_url ?? null,
+         JSON.stringify(body.achievements ?? []),
+         body.bio !== undefined, body.experience !== undefined, body.photo_url !== undefined, body.achievements !== undefined]);
+    }
 
     await audit({ actorId: req.user!.id, action: 'staff.update', entity: 'users', entityId: id, diff: { ...body, password: body.password ? '***' : undefined } });
     return updated;

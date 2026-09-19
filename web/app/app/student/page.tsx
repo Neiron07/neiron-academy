@@ -119,9 +119,12 @@ export default function StudentHomePage() {
         )}
       </div>
 
-      <div className="my-5 flex justify-center">
+      <div className="my-5 flex flex-col items-center gap-1.5">
         <Link href="/app/student/transactions">
           <CoinBalance value={data.coins} />
+        </Link>
+        <Link href="/app/student/coin-guide" className="text-sm text-purple hover:underline">
+          За что дают коины?
         </Link>
       </div>
 
@@ -134,6 +137,18 @@ export default function StudentHomePage() {
                 {data.group?.name} · {formatRelativeDateTime(data.nextLesson.scheduled_at)}
               </p>
               {data.nextLesson.topic && <p className="mt-0.5 truncate text-sm text-lavender">{data.nextLesson.topic}</p>}
+            </div>
+            <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
+          </Card>
+        </Link>
+      )}
+
+      {data.group?.teacher_id && (
+        <Link href={`/app/student/teacher/${data.group.teacher_id}`}>
+          <Card className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-lavender">Мой преподаватель</p>
+              <p className="font-medium text-white">{data.group.teacher_name}</p>
             </div>
             <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
           </Card>

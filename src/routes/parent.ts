@@ -183,7 +183,7 @@ export default async function parentRoutes(app: FastifyInstance) {
       `select l.id, l.scheduled_at, l.duration_min, l.status,
               g.name as group_name, g.room,
               c.name as course_name,
-              u.full_name as teacher_name,
+              g.teacher_id, u.full_name as teacher_name,
               b.name as branch_name,
               l.topic_text as topic
          from lessons l

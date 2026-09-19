@@ -157,7 +157,8 @@ export default async function authRoutes(app: FastifyInstance) {
   app.get('/me', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent', 'marketer']) },
     async (req) => {
       const u = req.user!;
-      const base = { id: u.id, role: u.role, full_name: u.full_name };
+      const onb = await one<{ onboarded_at: string | null }>(`select onboarded_at from users where id=$1`, [u.id]);
+      const base = { id: u.id, role: u.role, full_name: u.full_name, onboarded_at: onb?.onboarded_at ?? null };
 
       if (u.role === 'student') {
         const s = await one<{ coins_balance: number; xp_total: number }>(
@@ -173,6 +174,13 @@ export default async function authRoutes(app: FastifyInstance) {
         return { ...base, children };
       }
       return base;
+    });
+
+  /** Отметить вводный экран платформы как просмотренный — больше не показывать. */
+  app.post('/onboarding/seen', { preHandler: app.auth(['admin', 'teacher', 'student', 'parent', 'marketer']) },
+    async (req) => {
+      await query(`update users set onboarded_at = now() where id = $1`, [req.user!.id]);
+      return { ok: true };
     });
 
   // ------------------------------------------------------------ выход

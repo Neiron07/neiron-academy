@@ -8,6 +8,22 @@ import { audit } from '../lib/audit.js';
 export default async function teacherRoutes(app: FastifyInstance) {
   const staff = app.auth(['teacher', 'admin']);
 
+  /**
+   * Публичная карточка преподавателя — фото/опыт/достижения. Открыта
+   * ученикам и родителям (не только своим — это промо-инфо, не приватные
+   * данные), не только персоналу, поэтому auth здесь шире, чем у staff.
+   */
+  app.get('/profile/:id', { preHandler: app.auth(['student', 'parent', 'teacher', 'admin', 'marketer']) }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const teacher = await one(
+      `select u.id, u.full_name, tp.bio, tp.experience, tp.photo_url, tp.achievements
+         from users u
+    left join teacher_profiles tp on tp.user_id = u.id
+        where u.id = $1 and u.role = 'teacher' and u.is_active`, [id]);
+    if (!teacher) throw new AppError(404, 'NOT_FOUND', 'Преподаватель не найден');
+    return teacher;
+  });
+
   /** Главный экран: уроки на сегодня. Если сегодня нет — неделя вперёд. */
   app.get('/today', { preHandler: staff }, async (req) => {
     const isAdmin = req.user!.role === 'admin';
@@ -75,7 +91,7 @@ export default async function teacherRoutes(app: FastifyInstance) {
     const isAdmin = req.user!.role === 'admin';
 
     const lessons = await query(
-      `select l.id, l.scheduled_at, l.status, g.name as group_name, g.room, c.name as course_name
+      `select l.id, l.scheduled_at, l.duration_min, l.status, g.name as group_name, g.room, c.name as course_name
          from lessons l join groups g on g.id = l.group_id join courses c on c.id = g.course_id
         where l.scheduled_at::date between $1 and $2
           and g.status = 'active'
