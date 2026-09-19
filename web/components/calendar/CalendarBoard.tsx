@@ -223,7 +223,7 @@ function EventEntry({ event, onClick }: { event: CalendarEvent; onClick: () => v
             {formatTime(event.starts_at)} · {event.title}
           </p>
           <p className={`truncate ${isTrial ? TRIAL_CLASSES.text : 'text-muted'}`}>
-            {isTrial ? 'Пробный урок' : (event.teacher_name ?? 'событие')}
+            {event.teacher_name ?? (isTrial ? 'Пробный урок' : 'событие')}
             {event.room && ` · ${event.room}`}
           </p>
         </div>
