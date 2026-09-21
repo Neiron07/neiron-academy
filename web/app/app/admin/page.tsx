@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Phone, AlertTriangle, Wallet, Sparkles } from 'lucide-react';
@@ -8,11 +9,13 @@ import type { AdminDashboard } from '@/lib/types';
 import { Card, InvertCard } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StudentQuickView } from '@/components/admin/StudentQuickView';
 import { formatKzt, formatRelativeDateTime, formatDate, formatTime } from '@/lib/format';
 import { paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
 import { TRIAL_CLASSES } from '@/lib/calendar';
 
 export default function AdminDashboardPage() {
+  const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: () => api.get<AdminDashboard>('/admin/dashboard'),
@@ -91,13 +94,17 @@ export default function AdminDashboardPage() {
             {data.atRisk.map((s) =>
               s.risk_level === 'critical' ? (
                 <InvertCard key={s.student_id}>
-                  <p className="font-medium">{s.full_name}</p>
+                  <button onClick={() => setQuickViewId(s.student_id)} className="block text-left font-medium hover:underline">
+                    {s.full_name}
+                  </button>
                   <p className="mb-2 text-sm opacity-70">Пропустил {s.miss_last3} из последних 3 уроков</p>
                   <RiskActions name={s.full_name} invert />
                 </InvertCard>
               ) : (
                 <Card key={s.student_id} className="border-purple">
-                  <p className="font-medium text-white">{s.full_name}</p>
+                  <button onClick={() => setQuickViewId(s.student_id)} className="block text-left font-medium text-white hover:underline">
+                    {s.full_name}
+                  </button>
                   <p className="mb-2 text-sm text-lavender">Пропустил {s.miss_last2} из последних 2 уроков</p>
                   <RiskActions name={s.full_name} />
                 </Card>
@@ -113,7 +120,9 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
             {data.debtors.map((d) => (
               <Card key={d.id} className="flex items-center justify-between">
-                <span className="text-white">{d.full_name}</span>
+                <button onClick={() => setQuickViewId(d.id)} className="text-white hover:underline">
+                  {d.full_name}
+                </button>
                 <StatusBadge tone={d.lessons_left <= 0 ? 'negative' : 'neutral'} label={`${d.lessons_left} ост.`} />
               </Card>
             ))}
@@ -166,9 +175,9 @@ export default function AdminDashboardPage() {
                 {data.paymentsDue.map((p) => (
                   <tr key={p.id} className="border-b border-purple-mid/40 last:border-0">
                     <td className="px-4 py-3">
-                      <Link href={`/app/admin/students?search=${encodeURIComponent(p.full_name)}`} className="text-white hover:underline">
+                      <button onClick={() => setQuickViewId(p.id)} className="text-white hover:underline">
                         {p.full_name}
-                      </Link>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-white">{p.amount ? formatKzt(p.amount) : '—'}</td>
                     <td className="px-4 py-3 text-lavender">{formatRelativeDateTime(p.next_payment_estimate)}</td>
@@ -229,6 +238,8 @@ export default function AdminDashboardPage() {
           ))}
         </div>
       </section>
+
+      <StudentQuickView studentId={quickViewId} onClose={() => setQuickViewId(null)} />
     </div>
   );
 }

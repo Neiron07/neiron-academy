@@ -235,6 +235,38 @@ export default async function adminRoutes(app: FastifyInstance) {
     }));
   });
 
+  /** Быстрая карточка ученика — для клика по имени с дашборда, без перехода на страницу учеников. */
+  app.get('/students/:id', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const r = await one<any>(
+      `select u.id, u.full_name, u.login, u.is_active, u.branch_id, u.created_at,
+              b.name as branch_name,
+              s.status, s.birth_date, s.gender, s.coins_balance, s.xp_total, s.payment_note_at,
+              s.next_payment_at,
+              g.id as group_id, g.name as group_name, e.joined_at,
+              pay.lessons_left, pay.weekly_lessons,
+              pay.total_paid, pay.last_payment_at, pay.last_payment_amount,
+              (select pu.phone from parents_students ps join users pu on pu.id=ps.parent_id
+                where ps.student_id = u.id order by ps.is_primary desc limit 1) as phone,
+              (select coalesce(json_agg(json_build_object('id', pu.id, 'full_name', pu.full_name, 'phone', pu.phone)), '[]')
+                 from parents_students ps join users pu on pu.id=ps.parent_id
+                where ps.student_id = u.id) as parents
+         from users u
+         join students s on s.user_id = u.id
+    left join branches b on b.id = u.branch_id
+    left join enrollments e on e.student_id = u.id and e.status='active'
+    left join groups g on g.id = e.group_id
+    left join v_student_payment_status pay on pay.student_id = u.id
+        where u.role='student' and u.id = $1`,
+      [id]);
+    if (!r) throw new AppError(404, 'NOT_FOUND', 'Ученик не найден');
+
+    return {
+      ...r,
+      next_payment_estimate: estimateNextPayment(r.last_payment_at, r.lessons_left, r.weekly_lessons),
+    };
+  });
+
   /** Редактирование ученика: имя, дата рождения, филиал, активность. */
   app.patch('/students/:id', { preHandler: admin }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);

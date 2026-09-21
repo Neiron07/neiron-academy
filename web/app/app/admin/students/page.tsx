@@ -86,8 +86,8 @@ function StudentsContent() {
         <div className="overflow-x-auto rounded-2xl border border-purple-mid">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-purple-mid text-lavender">
-                <th className="px-4 py-3 font-medium">Ученик</th>
+              <tr className="border-b border-purple-mid bg-bg text-lavender">
+                <th className="sticky left-0 z-10 bg-bg px-4 py-3 font-medium">Ученик</th>
                 <th className="px-4 py-3 font-medium">Коины</th>
                 <th className="px-4 py-3 font-medium">Филиал</th>
                 <th className="px-4 py-3 font-medium">Телефон</th>
@@ -104,13 +104,16 @@ function StudentsContent() {
               </tr>
             </thead>
             <tbody>
-              {data.map((s) => {
+              {data.map((s, i) => {
                 const primaryParent = s.parents[0];
                 const days = s.next_payment_estimate ? daysUntil(s.next_payment_estimate) : null;
                 const plannedDays = s.next_payment_at ? daysUntil(s.next_payment_at) : null;
+                // Зебра + закреплённая первая колонка — со многими столбцами таблица
+                // скроллится вбок, и легко потерять, к какому ученику относится строка.
+                const rowBg = i % 2 === 0 ? 'bg-bg' : 'bg-purple-deep';
                 return (
-                  <tr key={s.id} className={`border-b border-purple-mid/40 last:border-0 ${!s.is_active ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3">
+                  <tr key={s.id} className={`border-b border-purple-mid/40 last:border-0 ${rowBg} ${!s.is_active ? 'opacity-50' : ''}`}>
+                    <td className={`sticky left-0 z-10 px-4 py-3 ${rowBg}`}>
                       <p className="text-white">{s.full_name}</p>
                       <p className="text-xs text-muted">{s.login}</p>
                     </td>
