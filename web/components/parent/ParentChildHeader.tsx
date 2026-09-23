@@ -12,6 +12,7 @@ const TABS = [
   { id: '', label: 'Сводка' },
   { id: 'schedule', label: 'Расписание' },
   { id: 'attendance', label: 'Посещаемость' },
+  { id: 'shop', label: 'Магазин' },
   { id: 'feedback', label: 'Обратная связь' },
   { id: 'homework', label: 'Домашки' },
   { id: 'payments', label: 'Оплаты' },
