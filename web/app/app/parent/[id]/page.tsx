@@ -2,7 +2,7 @@
 
 import { use, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageCircle, AlertCircle, Mail } from 'lucide-react';
+import { MessageCircle, AlertCircle, Mail, Star, Camera } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { ParentOverview, ParentReferrals } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
@@ -11,6 +11,7 @@ import { CoinIcon } from '@/components/ui/CoinIcon';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { ReferralCard } from '@/components/parent/ReferralCard';
 import { waLink } from '@/lib/constants';
+import { SITE } from '@/lib/site-content';
 import { formatNumber } from '@/lib/format';
 import { getParentDailyMessage } from '@/lib/motivational-messages';
 
@@ -106,13 +107,24 @@ export default function ParentOverviewPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      <a href={waLink(`Здравствуйте! Вопрос по ${data.child.full_name}`)} target="_blank" rel="noreferrer">
+      <a href={waLink(`Здравствуйте! Вопрос по ${data.child.full_name}`)} target="_blank" rel="noreferrer" className="block">
         <Button variant="secondary" fullWidth>
           <MessageCircle className="size-4" aria-hidden /> Написать в школу
         </Button>
       </a>
 
       {referrals && <ReferralCard paidFriends={referrals.paidFriends} />}
+
+      <a href={SITE.twoGisReviewsUrl} target="_blank" rel="noreferrer" className="block">
+        <Button variant="secondary" fullWidth>
+          <Star className="size-4" aria-hidden /> Оставить отзыв о школе
+        </Button>
+      </a>
+      <a href={SITE.instagram} target="_blank" rel="noreferrer" className="block">
+        <Button variant="secondary" fullWidth>
+          <Camera className="size-4" aria-hidden /> Подписаться в Instagram
+        </Button>
+      </a>
     </div>
   );
 }
