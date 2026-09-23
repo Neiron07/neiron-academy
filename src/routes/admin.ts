@@ -137,11 +137,20 @@ export default async function adminRoutes(app: FastifyInstance) {
         full_name: z.string().min(2),
         phone: z.string(),
       }).optional(),
+      referred_by_phone: z.string().optional(),
     }).parse(req.body);
 
     const birthYear = body.birth_date ? new Date(body.birth_date).getFullYear() : undefined;
     const login = await generateLogin(body.full_name, birthYear);
     const pin = generatePin();
+
+    let referrerId: string | null = null;
+    if (body.referred_by_phone) {
+      const referrer = await one<{ id: string }>(
+        `select id from users where phone=$1 and role='parent'`, [normalizePhone(body.referred_by_phone)]);
+      if (!referrer) throw new AppError(400, 'REFERRER_NOT_FOUND', 'Родитель с таким телефоном не найден в системе');
+      referrerId = referrer.id;
+    }
 
     const created = await tx(async (c) => {
       const u = await c.query(
@@ -150,8 +159,8 @@ export default async function adminRoutes(app: FastifyInstance) {
         [body.branch_id ?? config.BRANCH_ID, body.full_name, login, await hash(pin), req.user!.id]);
       const studentId = u.rows[0].id;
 
-      await c.query(`insert into students (user_id, birth_date, gender) values ($1,$2,$3)`,
-        [studentId, body.birth_date ?? null, body.gender ?? null]);
+      await c.query(`insert into students (user_id, birth_date, gender, referred_by_parent_id) values ($1,$2,$3,$4)`,
+        [studentId, body.birth_date ?? null, body.gender ?? null, referrerId]);
 
       if (body.group_id) {
         const cap = await c.query(
@@ -216,13 +225,15 @@ export default async function adminRoutes(app: FastifyInstance) {
                 where ps.student_id = u.id order by ps.is_primary desc limit 1) as phone,
               (select coalesce(json_agg(json_build_object('id', pu.id, 'full_name', pu.full_name, 'phone', pu.phone)), '[]')
                  from parents_students ps join users pu on pu.id=ps.parent_id
-                where ps.student_id = u.id) as parents
+                where ps.student_id = u.id) as parents,
+              s.referred_by_parent_id, rp.full_name as referred_by_name, rp.phone as referred_by_phone
          from users u
          join students s on s.user_id = u.id
     left join branches b on b.id = u.branch_id
     left join enrollments e on e.student_id = u.id and e.status='active'
     left join groups g on g.id = e.group_id
     left join v_student_payment_status pay on pay.student_id = u.id
+    left join users rp on rp.id = s.referred_by_parent_id
         where u.role='student'
           and ($1::text is null or u.full_name ilike '%'||$1||'%' or u.login ilike '%'||$1||'%')
           and ($2::text is null or s.status = $2::enroll_status)
@@ -250,13 +261,15 @@ export default async function adminRoutes(app: FastifyInstance) {
                 where ps.student_id = u.id order by ps.is_primary desc limit 1) as phone,
               (select coalesce(json_agg(json_build_object('id', pu.id, 'full_name', pu.full_name, 'phone', pu.phone)), '[]')
                  from parents_students ps join users pu on pu.id=ps.parent_id
-                where ps.student_id = u.id) as parents
+                where ps.student_id = u.id) as parents,
+              s.referred_by_parent_id, rp.full_name as referred_by_name, rp.phone as referred_by_phone
          from users u
          join students s on s.user_id = u.id
     left join branches b on b.id = u.branch_id
     left join enrollments e on e.student_id = u.id and e.status='active'
     left join groups g on g.id = e.group_id
     left join v_student_payment_status pay on pay.student_id = u.id
+    left join users rp on rp.id = s.referred_by_parent_id
         where u.role='student' and u.id = $1`,
       [id]);
     if (!r) throw new AppError(404, 'NOT_FOUND', 'Ученик не найден');
@@ -284,12 +297,29 @@ export default async function adminRoutes(app: FastifyInstance) {
         full_name: z.string().min(2),
         phone: z.string(),
       }).optional(),
+      referred_by_phone: z.string().nullable().optional(),
     }).parse(req.body);
 
     const existing = await one<{ id: string }>(`select id from users where id=$1 and role='student'`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'Ученик не найден');
 
+    // undefined — не трогаем, null — снять привязку, uuid — новый реферер.
+    let referrerId: string | null | undefined;
+    if (body.referred_by_phone !== undefined) {
+      if (body.referred_by_phone === null) {
+        referrerId = null;
+      } else {
+        const referrer = await one<{ id: string }>(
+          `select id from users where phone=$1 and role='parent'`, [normalizePhone(body.referred_by_phone)]);
+        if (!referrer) throw new AppError(400, 'REFERRER_NOT_FOUND', 'Родитель с таким телефоном не найден в системе');
+        referrerId = referrer.id;
+      }
+    }
+
     await tx(async (c) => {
+      if (referrerId !== undefined) {
+        await c.query(`update students set referred_by_parent_id=$2 where user_id=$1`, [id, referrerId]);
+      }
       if (body.full_name !== undefined || body.branch_id !== undefined || body.is_active !== undefined) {
         await c.query(
           `update users set

@@ -174,6 +174,21 @@ export default async function parentRoutes(app: FastifyInstance) {
     };
   });
 
+  /**
+   * Реферальная программа: считаем друзьями учеников, у которых этот родитель
+   * указан приводящим (referred_by_parent_id) и уже есть хотя бы одна оплата —
+   * до первой оплаты это просто запись в системе, а не подтверждённый друг.
+   */
+  app.get('/referrals', { preHandler: parent }, async (req) => {
+    const paid = await one<{ cnt: string }>(
+      `select count(distinct s.user_id)::text as cnt
+         from students s
+        where s.referred_by_parent_id = $1
+          and exists (select 1 from payments p where p.student_id = s.user_id)`,
+      [req.user!.id]);
+    return { paidFriends: Number(paid?.cnt ?? 0) };
+  });
+
   /** Ближайшие занятия — с преподавателем, направлением и филиалом, для карточки на главном экране. */
   app.get('/children/:id/schedule', { preHandler: parent }, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);

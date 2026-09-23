@@ -1,16 +1,18 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageCircle, AlertCircle } from 'lucide-react';
+import { MessageCircle, AlertCircle, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
-import type { ParentOverview } from '@/lib/types';
+import type { ParentOverview, ParentReferrals } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { ReferralCard } from '@/components/parent/ReferralCard';
 import { waLink } from '@/lib/constants';
 import { formatNumber } from '@/lib/format';
+import { getParentDailyMessage } from '@/lib/motivational-messages';
 
 export default function ParentOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -18,11 +20,30 @@ export default function ParentOverviewPage({ params }: { params: Promise<{ id: s
     queryKey: ['parent-overview', id],
     queryFn: () => api.get<ParentOverview>(`/parent/children/${id}/overview`),
   });
+  const { data: referrals } = useQuery({
+    queryKey: ['parent-referrals'],
+    queryFn: () => api.get<ParentReferrals>('/parent/referrals'),
+  });
+
+  const letter = useMemo(
+    () => (data ? getParentDailyMessage(data.child.full_name, data.child.id) : ''),
+    [data],
+  );
 
   if (isLoading || !data) return <SkeletonCard />;
 
   return (
     <div className="space-y-3">
+      <Card className="border-purple bg-purple/10">
+        <div className="flex items-start gap-2.5">
+          <Mail className="mt-0.5 size-5 shrink-0 text-purple" aria-hidden />
+          <div>
+            <p className="text-sm font-medium text-lavender">Письмо дня</p>
+            <p className="mt-1 text-white">{letter}</p>
+          </div>
+        </div>
+      </Card>
+
       {data.subscription.low && (
         <Card className="border-white/60">
           <div className="mb-2 flex items-center gap-1.5 text-white">
@@ -90,6 +111,8 @@ export default function ParentOverviewPage({ params }: { params: Promise<{ id: s
           <MessageCircle className="size-4" aria-hidden /> Написать в школу
         </Button>
       </a>
+
+      {referrals && <ReferralCard paidFriends={referrals.paidFriends} />}
     </div>
   );
 }

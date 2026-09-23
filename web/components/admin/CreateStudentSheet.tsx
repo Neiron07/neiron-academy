@@ -23,6 +23,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
   const [groupId, setGroupId] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
+  const [referredByPhone, setReferredByPhone] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<CreateStudentResponse | null>(null);
 
@@ -53,6 +54,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
           parentName.trim() && parentPhone.trim()
             ? { full_name: parentName.trim(), phone: parentPhone.trim() }
             : undefined,
+        referred_by_phone: referredByPhone.trim() || undefined,
       }),
     onSuccess: (res) => {
       setError('');
@@ -74,6 +76,7 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
     setGroupId('');
     setParentName('');
     setParentPhone('');
+    setReferredByPhone('');
     setError('');
     setResult(null);
   }
@@ -201,6 +204,15 @@ export function CreateStudentSheet({ open, onClose }: { open: boolean; onClose: 
               Чтобы создать родителя, заполните и имя, и телефон — иначе поле проигнорируется.
             </p>
           )}
+        </div>
+        <div className="border-t border-purple-mid/40 pt-3">
+          <p className="mb-2 text-sm text-lavender">Реферальная программа (необязательно)</p>
+          <PhoneInput
+            label="Телефон родителя, который привёл"
+            value={referredByPhone}
+            onChange={setReferredByPhone}
+          />
+          <p className="mt-2 text-xs text-muted">Этот родитель уже должен быть в системе — засчитается как приглашённый друг.</p>
         </div>
         {error && <p className="text-sm text-white">{error}</p>}
         <Button

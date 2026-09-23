@@ -373,6 +373,10 @@ export interface ParentOverview {
   topicsCovered: { title: string; last_at: string }[];
 }
 
+export interface ParentReferrals {
+  paidFriends: number;
+}
+
 export interface ParentAttendanceDay {
   id: string;
   scheduled_at: string;
@@ -553,6 +557,10 @@ export interface AdminStudentRow {
   next_payment_estimate: string | null;
   phone: string | null;
   parents: AdminStudentParent[];
+  /** Кем приведён — родитель-реферер (реферальная программа), если указан. */
+  referred_by_parent_id: string | null;
+  referred_by_name: string | null;
+  referred_by_phone: string | null;
 }
 
 export interface PaymentDueRow {

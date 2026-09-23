@@ -38,6 +38,7 @@ export function StudentFormSheet({
   const [isActive, setIsActive] = useState(true);
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
+  const [referredByPhone, setReferredByPhone] = useState('');
   const [error, setError] = useState('');
 
   const { data: branches } = useQuery({
@@ -67,6 +68,7 @@ export function StudentFormSheet({
     setIsActive(student.is_active);
     setParentName(student.parents[0]?.full_name ?? '');
     setParentPhone(student.parents[0]?.phone.replace(/\D/g, '') ?? '');
+    setReferredByPhone(student.referred_by_phone?.replace(/\D/g, '') ?? '');
     setError('');
   }, [student]);
 
@@ -85,6 +87,7 @@ export function StudentFormSheet({
         status,
         is_active: isActive,
         parent: parentName.trim() && parentPhone.trim() ? { full_name: parentName.trim(), phone: parentPhone.trim() } : undefined,
+        referred_by_phone: referredByPhone.trim() || null,
       }),
     onSuccess: () => {
       toast('Данные ученика обновлены', 'success');
@@ -183,6 +186,15 @@ export function StudentFormSheet({
           {parentPartial && (
             <p className="mt-2 text-sm text-white">Заполните и имя, и телефон, иначе изменения родителя не сохранятся.</p>
           )}
+        </div>
+        <div className="border-t border-purple-mid/40 pt-3">
+          <p className="mb-2 text-sm text-lavender">Реферальная программа (необязательно)</p>
+          <PhoneInput
+            label="Телефон родителя, который привёл"
+            value={referredByPhone}
+            onChange={setReferredByPhone}
+          />
+          <p className="mt-2 text-xs text-muted">Этот родитель уже должен быть в системе. Оставьте поле пустым, чтобы убрать привязку.</p>
         </div>
         <label className="flex items-center gap-2 text-sm text-lavender">
           <input
