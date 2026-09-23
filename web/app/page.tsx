@@ -17,14 +17,22 @@ import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { Reveal } from '@/components/ui/Reveal';
 import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import { SITE } from '@/lib/site-content';
+import { SCHOOL_WHATSAPP } from '@/lib/constants';
 import { META_PIXEL_ID } from '@/lib/analytics';
+
+const SITE_URL = 'https://neiron-academy.vercel.app';
 
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'LocalBusiness',
+  '@type': ['LocalBusiness', 'EducationalOrganization'],
   name: 'Neiron Academy',
   description: 'IT-школа для детей 7–16 лет: Scratch, Roblox Studio, Python, разработка сайтов, нейросети.',
-  address: { '@type': 'PostalAddress', addressLocality: SITE.city, addressRegion: SITE.district },
+  url: SITE_URL,
+  image: `${SITE_URL}/opengraph-image`,
+  telephone: `+${SCHOOL_WHATSAPP}`,
+  priceRange: '₸₸',
+  address: { '@type': 'PostalAddress', addressLocality: SITE.city, addressRegion: SITE.district, addressCountry: 'KZ' },
+  sameAs: [SITE.instagram, SITE.twoGisReviewsUrl],
 };
 
 export default function LandingPage() {

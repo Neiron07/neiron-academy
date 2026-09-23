@@ -8,7 +8,7 @@ export const SITE = {
   city: 'Астана',
   district: 'ЖК Highvill',
   addressLine: 'г. Астана, ЖК Highvill, точный адрес уточняется в WhatsApp',
-  instagram: 'https://instagram.com/neiron.academy',
+  instagram: 'https://www.instagram.com/neiron_academy',
   mapsQuery: 'Highvill Astana',
   twoGisReviewsUrl: 'https://2gis.kz/astana/firm/70000001105777339/tab/reviews',
 };
