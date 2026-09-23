@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Coins, Search, KeyRound, Pencil, Trash2 } from 'lucide-react';
@@ -17,7 +17,7 @@ import { ResetPinSheet, type ResetPinTarget } from '@/components/admin/ResetPinS
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate, formatKzt } from '@/lib/format';
-import { daysUntil, paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
+import { daysUntil, lessonsLeftBadgeClass, paymentBadgeClass, paymentLabel } from '@/lib/payment-status';
 import { waChatLink } from '@/lib/constants';
 import { Users } from 'lucide-react';
 
@@ -32,14 +32,21 @@ function StudentsContent() {
   const toast = useToast();
   const initialSearch = useSearchParams().get('search') ?? '';
   const [search, setSearch] = useState(initialSearch);
+  // Дебаунс — иначе каждый нажатый символ бьёт по базе отдельным запросом.
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [createOpen, setCreateOpen] = useState(false);
   const [editStudent, setEditStudent] = useState<AdminStudentRow | null>(null);
   const [adjustFor, setAdjustFor] = useState<{ id: string; name: string } | null>(null);
   const [pinFor, setPinFor] = useState<ResetPinTarget | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-students', search],
-    queryFn: () => api.get<AdminStudentRow[]>(`/admin/students${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+    queryKey: ['admin-students', debouncedSearch],
+    queryFn: () => api.get<AdminStudentRow[]>(`/admin/students${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`),
   });
 
   const remove = useMutation({
@@ -98,7 +105,7 @@ function StudentsContent() {
                 <th className="px-4 py-3 font-medium">Всего оплачено</th>
                 <th className="px-4 py-3 font-medium">Посл. оплата</th>
                 <th className="px-4 py-3 font-medium">Оплата (заметка)</th>
-                <th className="px-4 py-3 font-medium">След. оплата (оценка)</th>
+                <th className="px-4 py-3 font-medium">Осталось занятий</th>
                 <th className="px-4 py-3 font-medium">След. оплата (план)</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -106,7 +113,6 @@ function StudentsContent() {
             <tbody>
               {data.map((s, i) => {
                 const primaryParent = s.parents[0];
-                const days = s.next_payment_estimate ? daysUntil(s.next_payment_estimate) : null;
                 const plannedDays = s.next_payment_at ? daysUntil(s.next_payment_at) : null;
                 // Зебра + закреплённая первая колонка — со многими столбцами таблица
                 // скроллится вбок, и легко потерять, к какому ученику относится строка.
@@ -156,11 +162,11 @@ function StudentsContent() {
                     <td className="px-4 py-3 text-lavender">{s.last_payment_at ? formatDate(s.last_payment_at) : '—'}</td>
                     <td className="px-4 py-3 text-lavender">{s.payment_note_at ? formatDate(s.payment_note_at) : '—'}</td>
                     <td className="px-4 py-3">
-                      {days === null ? (
+                      {s.lessons_left === null ? (
                         <span className="text-lavender">—</span>
                       ) : (
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(days)}`}>
-                          {paymentLabel(days)}
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${lessonsLeftBadgeClass(s.lessons_left)}`}>
+                          {s.lessons_left}
                         </span>
                       )}
                     </td>

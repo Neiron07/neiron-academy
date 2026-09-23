@@ -30,7 +30,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // =================================================== ДАШБОРД
   app.get('/dashboard', { preHandler: admin }, async () => {
-    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads, totalStudents, paymentRows, upcomingTrials] =
+    const [lessonsToday, notClosed, groups, money, atRisk, pendingOrders, newLeads, totalStudents, plannedPaymentRows, upcomingTrials] =
       await Promise.all([
         one(`select count(*) filter (where status='completed')::int as completed,
                     count(*) filter (where status='planned')::int   as planned
@@ -66,10 +66,11 @@ export default async function adminRoutes(app: FastifyInstance) {
 
         one(`select count(*)::int as cnt from users where role='student' and is_active`),
 
-        query(`select u.id, u.full_name, pay.last_payment_amount, pay.last_payment_at,
-                      pay.lessons_left, pay.weekly_lessons
-                 from users u join v_student_payment_status pay on pay.student_id = u.id
-                where u.role='student' and u.is_active and pay.last_payment_at is not null`),
+        query(`select u.id, u.full_name, s.next_payment_at, pay.last_payment_amount
+                 from users u
+                 join students s on s.user_id = u.id
+            left join v_student_payment_status pay on pay.student_id = u.id
+                where u.role='student' and u.is_active and s.next_payment_at is not null`),
 
         query(`select e.id, e.title, e.starts_at, e.duration_min, e.room,
                       e.contact_name, e.contact_phone, u.full_name as teacher_name
@@ -85,15 +86,14 @@ export default async function adminRoutes(app: FastifyInstance) {
         where lb.lessons_left <= 2 and u.is_active
         order by lb.lessons_left`);
 
-    // Просроченные и скоро наступающие оплаты — оценка по темпу занятий, не жёсткая дата.
-    const paymentsDue = paymentRows
+    // Просроченные и скоро наступающие оплаты — по плановой дате, которую вручную
+    // выставляет админ (next_payment_at), а не по автоматической оценке темпа занятий.
+    const paymentsDue = plannedPaymentRows
       .map((r: any) => {
-        const estimate = estimateNextPayment(r.last_payment_at, r.lessons_left, r.weekly_lessons);
-        if (!estimate) return null;
-        const days = Math.round((new Date(estimate).getTime() - Date.now()) / 86_400_000);
-        return { id: r.id, full_name: r.full_name, amount: r.last_payment_amount, next_payment_estimate: estimate, days };
+        const days = Math.round((new Date(r.next_payment_at).getTime() - Date.now()) / 86_400_000);
+        return { id: r.id, full_name: r.full_name, amount: r.last_payment_amount, next_payment_at: r.next_payment_at, days };
       })
-      .filter((r: any): r is NonNullable<typeof r> => !!r && r.days <= 7)
+      .filter((r: any) => r.days <= 7)
       .sort((a: any, b: any) => a.days - b.days)
       .slice(0, 20);
 

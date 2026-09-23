@@ -6,6 +6,14 @@
 export const TRIAL_COLOR = '#FB923C';
 export const TRIAL_CLASSES = { border: 'border-[#FB923C]', bg: 'bg-[#FB923C]/15', text: 'text-[#FB923C]' };
 
+/**
+ * Обычное событие (не пробный урок) раньше выглядело почти как урок —
+ * тот же фиолетовый. Даём свой яркий цвет, чтобы три типа записи в календаре
+ * (урок / пробный / событие) различались с первого взгляда.
+ */
+export const EVENT_COLOR = '#38BDF8';
+export const EVENT_CLASSES = { border: 'border-[#38BDF8]', bg: 'bg-[#38BDF8]/15', text: 'text-[#38BDF8]' };
+
 /** Сегодняшняя дата (YYYY-MM-DD) по календарю Алматы, а не браузера. */
 export function almatyToday(): string {
   return new Intl.DateTimeFormat('en-CA', {

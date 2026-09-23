@@ -559,7 +559,8 @@ export interface PaymentDueRow {
   id: string;
   full_name: string;
   amount: number | null;
-  next_payment_estimate: string;
+  /** Плановая дата — вручную выставлена админом (students.next_payment_at). */
+  next_payment_at: string;
   days: number;
 }
 

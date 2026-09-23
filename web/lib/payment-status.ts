@@ -29,3 +29,10 @@ export function paymentStatusText(days: number): string {
   if (days < 5) return 'Скоро оплата';
   return 'Оплачено';
 }
+
+/** Тот же светофор, но по числу оставшихся занятий абонемента, а не по дате. */
+export function lessonsLeftBadgeClass(n: number): string {
+  if (n <= 0) return 'border-[#F87171] bg-[#F87171]/15 text-[#F87171]';
+  if (n <= 2) return 'border-[#FBBF24] bg-[#FBBF24]/15 text-[#FBBF24]';
+  return 'border-purple-mid text-lavender';
+}

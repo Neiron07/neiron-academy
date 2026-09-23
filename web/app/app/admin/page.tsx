@@ -167,7 +167,7 @@ export default function AdminDashboardPage() {
                 <tr className="border-b border-purple-mid text-lavender">
                   <th className="px-4 py-3 font-medium">Ученик</th>
                   <th className="px-4 py-3 font-medium">Сумма</th>
-                  <th className="px-4 py-3 font-medium">Следующая оплата</th>
+                  <th className="px-4 py-3 font-medium">Следующая оплата (план)</th>
                   <th className="px-4 py-3 font-medium">Статус</th>
                 </tr>
               </thead>
@@ -180,7 +180,7 @@ export default function AdminDashboardPage() {
                       </button>
                     </td>
                     <td className="px-4 py-3 text-white">{p.amount ? formatKzt(p.amount) : '—'}</td>
-                    <td className="px-4 py-3 text-lavender">{formatRelativeDateTime(p.next_payment_estimate)}</td>
+                    <td className="px-4 py-3 text-lavender">{formatRelativeDateTime(p.next_payment_at)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClass(p.days)}`}>
                         {paymentLabel(p.days)}

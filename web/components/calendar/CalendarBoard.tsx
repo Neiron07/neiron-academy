@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Plus, BookOpen, Sparkles, CalendarDays, X, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { AdminCalendarResponse, CalendarEvent, CalendarLesson } from '@/lib/types';
-import { weekDays, almatyToday, TRIAL_CLASSES } from '@/lib/calendar';
+import { weekDays, almatyToday, TRIAL_CLASSES, EVENT_CLASSES } from '@/lib/calendar';
 import { useCurrentUser } from '@/lib/use-current-user';
 import { almatyDayKey, formatTime } from '@/lib/format';
 import { Button } from '@/components/ui/Button';
@@ -208,21 +208,20 @@ function LessonEntry({ lesson, canCancel, onCancel }: { lesson: CalendarLesson; 
 
 function EventEntry({ event, onClick }: { event: CalendarEvent; onClick: () => void }) {
   const isTrial = event.kind === 'trial';
+  const classes = isTrial ? TRIAL_CLASSES : EVENT_CLASSES;
   const Icon = isTrial ? Sparkles : CalendarDays;
   return (
     <button
       onClick={onClick}
-      className={`block w-full rounded-xl border p-2 text-left text-xs ${
-        isTrial ? `${TRIAL_CLASSES.border} ${TRIAL_CLASSES.bg} hover:brightness-110` : 'border-purple bg-purple/10 hover:bg-purple/20'
-      }`}
+      className={`block w-full rounded-xl border p-2 text-left text-xs ${classes.border} ${classes.bg} hover:brightness-110`}
     >
       <div className="flex items-start gap-1.5">
-        <Icon className={`mt-0.5 size-3.5 shrink-0 ${isTrial ? TRIAL_CLASSES.text : 'text-purple'}`} aria-hidden />
+        <Icon className={`mt-0.5 size-3.5 shrink-0 ${classes.text}`} aria-hidden />
         <div className="min-w-0">
           <p className="font-medium text-white">
             {formatTime(event.starts_at)} · {event.title}
           </p>
-          <p className={`truncate ${isTrial ? TRIAL_CLASSES.text : 'text-muted'}`}>
+          <p className={`truncate ${classes.text}`}>
             {event.teacher_name ?? (isTrial ? 'Пробный урок' : 'событие')}
             {event.room && ` · ${event.room}`}
           </p>
